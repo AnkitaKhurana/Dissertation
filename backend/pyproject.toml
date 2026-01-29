@@ -1,0 +1,169 @@
+# pyproject.toml — Python Project Configuration for PR Sentinel Backend
+
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pr-sentinel-backend"
+version = "0.1.0"
+description = "Multi-Agent LLM Framework for Automated GitHub Pull Request Analysis - Backend"
+authors = [
+    {name = "PR Sentinel Team", email = "team@prsentinel.example.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Framework :: FastAPI",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/your-org/pr-sentinel"
+Documentation = "https://github.com/your-org/pr-sentinel#readme"
+Repository = "https://github.com/your-org/pr-sentinel"
+Issues = "https://github.com/your-org/pr-sentinel/issues"
+
+# ============================================================================
+# Black — Python Code Formatter
+# ============================================================================
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.mypy_cache
+  | \.pytest_cache
+  | \.venv
+  | venv
+  | build
+  | dist
+)/
+'''
+
+# ============================================================================
+# isort — Import Sorter
+# ============================================================================
+[tool.isort]
+profile = "black"
+line_length = 88
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+skip_gitignore = true
+skip = [".venv", "venv", "build", "dist"]
+
+# ============================================================================
+# mypy — Static Type Checker
+# ============================================================================
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+strict = true
+
+# Exclude paths
+exclude = [
+    "venv/",
+    ".venv/",
+    "tests/",
+]
+
+# Per-module options
+[[tool.mypy.overrides]]
+module = "motor.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "slowapi.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "langgraph.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "langchain.*"
+ignore_missing_imports = true
+
+# ============================================================================
+# pytest — Testing Framework
+# ============================================================================
+[tool.pytest.ini_options]
+testpaths = ["app/tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+asyncio_mode = "auto"
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Slow tests",
+    "llm: Tests requiring LLM adapter",
+    "github: Tests requiring GitHub API",
+]
+
+# ============================================================================
+# coverage.py — Code Coverage
+# ============================================================================
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "*/tests/*",
+    "*/conftest.py",
+    "*/__init__.py",
+    "*/migrations/*",
+]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+precision = 2
+show_missing = true
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+# ============================================================================
+# Bandit — Security Linter
+# ============================================================================
+[tool.bandit]
+exclude_dirs = ["/tests", "/venv", "/.venv"]
+skips = ["B101"]  # Skip assert warnings in tests
+
+# ============================================================================
+# setuptools — Package Configuration
+# ============================================================================
+[tool.setuptools]
+packages = ["app"]

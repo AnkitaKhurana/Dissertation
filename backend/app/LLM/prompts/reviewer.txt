@@ -1,0 +1,9 @@
+Given a pull request diff and metadata, produce findings with severity, file, line, and recommendation.
+Focus on:
+- Correctness bugs
+- Security/privacy risks
+- Performance pitfalls
+- Testing gaps
+- Style/consistency only if high impact
+
+Output JSON array of findings: [{"severity": "low|medium|high|critical", "file_path": "...", "line": 123, "title": "...", "detail": "...", "recommendation": "..."}].

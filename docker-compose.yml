@@ -1,0 +1,78 @@
+version: '3.9'
+
+services:
+  mongodb:
+    image: mongo:7.0-alpine
+    container_name: pr-sentinel-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - pr-sentinel-network
+
+  backend:
+    image: pr-sentinel-backend
+    container_name: pr-sentinel-api
+    depends_on:
+      - mongodb
+    environment:
+      MONGO_URI: mongodb://admin:admin123@mongodb:27017/pr_sentinel?authSource=admin
+      ENVIRONMENT: development
+      DEBUG: "true"
+      API_VERSION: v1
+      HOST: 0.0.0.0
+      PORT: 8000
+      JWT_SECRET: your-secret-key-here-replace-with-real-secret-minimum-32-chars
+      JWT_ALGORITHM: HS256
+      JWT_EXPIRATION_MINUTES: 1440
+      CSRF_SECRET: your-csrf-secret-here-replace-with-real-secret
+      GITHUB_CLIENT_ID: your-github-oauth-client-id
+      GITHUB_CLIENT_SECRET: your-github-oauth-client-secret
+      GITHUB_OAUTH_REDIRECT_URI: http://localhost:8000/api/v1/auth/github/callback
+      GITHUB_APP_TOKEN: your-github-app-installation-token
+      MONGO_DB_NAME: pr_sentinel
+      MONGO_MAX_POOL_SIZE: 10
+      MONGO_MIN_POOL_SIZE: 1
+      HOSTED_LLM_PROVIDER: groq
+      HOSTED_LLM_KEY: your-hosted-llm-api-key-for-pro-users
+      HOSTED_LLM_MODEL: gpt-4
+      GROQ_API_KEY: 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
+      GROQ_MODEL: llama-3.3-70b-versatile
+      GROQ_MAX_TOKENS: 2048
+      GROQ_TEMPERATURE: 0.1
+      HF_API_TOKEN: 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
+      HF_MODEL: deepseek-ai/deepseek-coder-6.7b-instruct
+      HF_MAX_NEW_TOKENS: 2048
+      HF_TEMPERATURE: 0.1
+      HF_USE_STREAMING: "false"
+      RATE_LIMIT_ENABLED: "true"
+      RATE_LIMIT_PER_MINUTE: 5
+      RATE_LIMIT_STORAGE: memory
+      MAX_PR_FILES: 500
+      JOB_TIMEOUT_SECONDS: 300
+      AGENT_TIMEOUT_SECONDS: 30
+      BACKGROUND_TASK_MAX_RETRIES: 3
+      JOB_RETENTION_FREE_TIER: 86400
+      JOB_RETENTION_PRO_TIER: 432000
+      JOB_RETENTION_ADMIN_TIER: 432000
+      LOG_LEVEL: INFO
+      LOG_FORMAT: json
+      LOG_REDACT_SECRETS: "true"
+      AZURE_KEY_VAULT_ENABLED: "true"
+      AZURE_KEY_VAULT_NAME: "akita-llm"
+    ports:
+      - "8000:8000"
+    networks:
+      - pr-sentinel-network
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
+
+networks:
+  pr-sentinel-network:
+    driver: bridge

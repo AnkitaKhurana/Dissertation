@@ -1,0 +1,4 @@
+https://github.com/org/repo/issues/1
+http://github.com/org/repo/pull/1
+https://gitlab.com/org/repo/pull/1
+not-a-url

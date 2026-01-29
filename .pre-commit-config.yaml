@@ -1,0 +1,164 @@
+# Pre-commit Configuration — PR Sentinel
+# Install hooks with: pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # ============================================================================
+  # General (All Files)
+  # ============================================================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.md$'
+      - id: end-of-file-fixer
+        exclude: '\.json$|\.min\.js$'
+      - id: check-yaml
+        args: ['--unsafe']  # Allow custom YAML tags
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+      - id: detect-private-key
+        exclude: 'test|mock|fixture'
+
+  # ============================================================================
+  # Python / Backend
+  # ============================================================================
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        name: black (Python formatter)
+        language_version: python3.11
+        files: ^backend/
+        args: ['--line-length=88']
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        name: isort (Python import sorter)
+        files: ^backend/
+        args: ['--profile=black', '--line-length=88']
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        name: flake8 (Python linter)
+        files: ^backend/
+        args:
+          - '--max-line-length=88'
+          - '--extend-ignore=E203,W503'  # Black compatibility
+          - '--exclude=venv,__pycache__,.pytest_cache'
+        additional_dependencies:
+          - flake8-bugbear
+          - flake8-comprehensions
+          - flake8-simplify
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        name: mypy (Python type checker)
+        files: ^backend/(app/core|app/services)/.*\.py$
+        args: ['--strict', '--ignore-missing-imports']
+        additional_dependencies:
+          - pydantic>=2.0
+          - types-requests
+
+  # Security: Check for known vulnerabilities
+  - repo: https://github.com/Lucas-C/pre-commit-hooks-safety
+    rev: v1.3.3
+    hooks:
+      - id: python-safety-dependencies-check
+        name: safety (Python dependency security scanner)
+        files: ^backend/requirements\.txt$
+
+  # ============================================================================
+  # TypeScript / Frontend
+  # ============================================================================
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        name: prettier (TypeScript/React formatter)
+        files: ^frontend-chromeExtension/.*\.(ts|tsx|js|jsx|json|css|md)$
+        args: ['--write', '--print-width=100', '--single-quote', '--trailing-comma=all']
+        additional_dependencies:
+          - prettier@3.1.1
+
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v9.0.0-beta.0
+    hooks:
+      - id: eslint
+        name: eslint (TypeScript/React linter)
+        files: ^frontend-chromeExtension/.*\.(ts|tsx|js|jsx)$
+        args: ['--fix', '--max-warnings=0']
+        additional_dependencies:
+          - eslint@8.56.0
+          - '@typescript-eslint/eslint-plugin@6.18.1'
+          - '@typescript-eslint/parser@6.18.1'
+          - 'eslint-plugin-react@7.33.2'
+          - 'eslint-plugin-react-hooks@4.6.0'
+          - 'eslint-plugin-jsx-a11y@6.8.0'
+          - 'eslint-config-prettier@9.1.0'
+
+  # ============================================================================
+  # Security: Extension-specific Checks
+  # ============================================================================
+  - repo: local
+    hooks:
+      - id: ban-unsafe-extension-apis
+        name: Ban unsafe extension APIs (eval, new Function, document.write)
+        entry: bash -c 'if grep -rn --include="*.ts" --include="*.tsx" --include="*.js" "eval\(|new Function\(|document\.write\(" frontend-chromeExtension/src/; then echo "ERROR: Unsafe API detected (eval, new Function, or document.write)"; exit 1; fi'
+        language: system
+        pass_filenames: false
+
+  # ============================================================================
+  # Secrets Detection
+  # ============================================================================
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        name: detect-secrets (secret scanner)
+        args: ['--baseline', '.secrets.baseline']
+        exclude: '\.env\.example$|package-lock\.json$|yarn\.lock$'
+
+  # ============================================================================
+  # Markdown
+  # ============================================================================
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.38.0
+    hooks:
+      - id: markdownlint
+        name: markdownlint (Markdown linter)
+        args: ['--fix', '--disable', 'MD013', 'MD033']  # Disable line-length and inline HTML rules
+
+# ============================================================================
+# Configuration
+# ============================================================================
+
+# Fail fast: stop on first failure
+fail_fast: false
+
+# Exclude patterns
+exclude: |
+  (?x)^(
+      .*\.min\.js|
+      .*\.map|
+      node_modules/|
+      venv/|
+      dist/|
+      build/|
+      coverage/|
+      \.pytest_cache/|
+      \.mypy_cache/|
+      __pycache__/|
+      \.git/
+  )$

@@ -1,0 +1,309 @@
+{
+	"info": {
+		"name": "LLM PR Analyzer API",
+		"description": "API collection for testing PR analysis endpoints",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "https://llm-f0f3dafnbabua6d6.centralindia-01.azurewebsites.net",
+			"type": "string"
+		},
+		{
+			"key": "api_version",
+			"value": "v1",
+			"type": "string"
+		},
+		{
+			"key": "job_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "jwt_token",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Step 1: Initiate GitHub OAuth",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/{{api_version}}/auth/github",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"{{api_version}}",
+								"auth",
+								"github"
+							]
+						},
+						"description": "⚠️ OPEN THIS URL IN BROWSER (not Postman)\n\nThis will redirect you to GitHub to authorize the app.\nAfter authorization, GitHub redirects back with a JWT token.\n\nCopy the token from the URL or response and paste it into the jwt_token variable."
+					}
+				},
+				{
+					"name": "Verify Token (Get My Profile)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/{{api_version}}/auth/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"{{api_version}}",
+								"auth",
+								"me"
+							]
+						},
+						"description": "After getting JWT token, test it by fetching your user profile.\n\nMake sure jwt_token variable is set!"
+					}
+				}
+			],
+			"description": "GitHub OAuth authentication flow"
+		},
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/health",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"health"
+					]
+				},
+				"description": "Check API health status, database connection, and configuration"
+			}
+		},
+		{
+			"name": "Analyze PR - React Native Example",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"if (pm.response.code === 201) {",
+							"    const response = pm.response.json();",
+							"    pm.collectionVariables.set('job_id', response.job_id);",
+							"    console.log('Job created with ID:', response.job_id);",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"pr_url\": \"https://github.com/facebook/react-native/pull/54981\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/{{api_version}}/analyze-pr",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"{{api_version}}",
+						"analyze-pr"
+					]
+				},
+				"description": "Submit React Native PR #54981 for analysis. Returns job_id for polling status."
+			}
+		},
+		{
+			"name": "Analyze PR - Synchronous (Small PRs)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"pr_url\": \"https://github.com/facebook/react-native/pull/54981\",\n  \"agents_requested\": [\n    \"code_review\"\n  ],\n  \"sync\": true\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/{{api_version}}/analyze-pr",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"{{api_version}}",
+						"analyze-pr"
+					]
+				},
+				"description": "Run analysis synchronously and return results immediately (good for small PRs with 1-2 agents)"
+			}
+		},
+		{
+			"name": "Get Job Status",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/{{api_version}}/jobs/:job_id",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"{{api_version}}",
+						"jobs",
+						":job_id"
+					],
+					"variable": [
+						{
+							"key": "job_id",
+							"value": "{{job_id}}",
+							"description": "Job ID from analyze-pr response"
+						}
+					]
+				},
+				"description": "Poll job status and get results when completed. Use job_id from previous request."
+			}
+		},
+		{
+			"name": "List User Jobs",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/{{api_version}}/jobs?limit=10&skip=0",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"{{api_version}}",
+						"jobs"
+					],
+					"query": [
+						{
+							"key": "limit",
+							"value": "10"
+						},
+						{
+							"key": "skip",
+							"value": "0"
+						}
+					]
+				},
+				"description": "List all jobs for the current user with pagination"
+			}
+		},
+		{
+			"name": "Cancel Job",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/{{api_version}}/jobs/:job_id/cancel",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"{{api_version}}",
+						"jobs",
+						":job_id",
+						"cancel"
+					],
+					"variable": [
+						{
+							"key": "job_id",
+							"value": "{{job_id}}",
+							"description": "Job ID to cancel"
+						}
+					]
+				},
+				"description": "Cancel a running or pending job"
+			}
+		},
+		{
+			"name": "Get Current User Profile",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{jwt_token}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/{{api_version}}/auth/me",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"{{api_version}}",
+						"auth",
+						"me"
+					]
+				},
+				"description": "Get current user profile (tier, usage stats, etc.)"
+			}
+		}
+	]
+}

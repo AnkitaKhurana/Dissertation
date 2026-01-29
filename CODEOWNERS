@@ -1,0 +1,106 @@
+# Code Owners — PR Sentinel
+
+# This file defines code ownership for the PR Sentinel repository.
+# GitHub will automatically request reviews from the appropriate owners when PRs are opened.
+
+# Default owner for everything in the repo
+* @your-org/pr-sentinel-core
+
+# ============================================================================
+# Backend
+# ============================================================================
+
+# Backend core infrastructure
+/backend/app/main.py @your-org/backend-leads
+/backend/app/core/ @your-org/backend-leads
+
+# API routes
+/backend/app/api/ @your-org/backend-api
+
+# Services and adapters
+/backend/app/services/ @your-org/backend-services
+/backend/app/services/llm_adapter.py @your-org/llm-team
+/backend/app/services/langgraph_orchestrator.py @your-org/llm-team
+
+# Schemas
+/backend/app/schemas/ @your-org/backend-api
+
+# LLM prompts
+/backend/app/llm/prompts/ @your-org/llm-team @your-org/security-team
+
+# Tests
+/backend/app/tests/ @your-org/qa-team
+
+# Docker and deployment
+/backend/Dockerfile @your-org/devops-team
+/backend/requirements.txt @your-org/backend-leads
+
+# ============================================================================
+# Frontend
+# ============================================================================
+
+# Extension core
+/frontend-chromeExtension/src/extension/ @your-org/frontend-leads @your-org/extension-team
+
+# Content script and injection logic
+/frontend-chromeExtension/src/extension/content.ts @your-org/extension-team
+
+# Background service worker
+/frontend-chromeExtension/src/extension/background.ts @your-org/extension-team
+
+# UI components
+/frontend-chromeExtension/src/components/ @your-org/frontend-ui
+/frontend-chromeExtension/src/pages/ @your-org/frontend-ui
+
+# API client and services
+/frontend-chromeExtension/src/services/ @your-org/frontend-api
+
+# Tests
+/frontend-chromeExtension/src/tests/ @your-org/qa-team
+
+# Build configuration
+/frontend-chromeExtension/vite.config.ts @your-org/devops-team
+/frontend-chromeExtension/tsconfig.json @your-org/frontend-leads
+
+# Manifest and permissions
+/frontend-chromeExtension/public/manifest.json @your-org/extension-team @your-org/security-team
+
+# ============================================================================
+# Root Configuration
+# ============================================================================
+
+# Docker Compose
+/docker-compose.dev.yml @your-org/devops-team
+
+# CI/CD
+/.github/ @your-org/devops-team
+
+# Documentation
+/README.md @your-org/docs-team
+/CODING_GUIDELINES.md @your-org/backend-leads @your-org/frontend-leads
+/PRIVACY_POLICY.md @your-org/legal-team @your-org/security-team
+
+# Environment configuration
+/.env.example @your-org/devops-team @your-org/security-team
+
+# Pre-commit hooks
+/.pre-commit-config.yaml @your-org/backend-leads @your-org/frontend-leads
+
+# Makefile
+/Makefile @your-org/devops-team
+
+# ============================================================================
+# Scripts
+# ============================================================================
+
+/backend/scripts/ @your-org/backend-leads @your-org/devops-team
+
+# ============================================================================
+# Security-Critical Files
+# ============================================================================
+
+# Require security team approval for these files
+/backend/app/core/config.py @your-org/security-team
+/backend/app/core/logging.py @your-org/security-team
+/backend/app/api/routes/auth.py @your-org/security-team
+/frontend-chromeExtension/src/services/storage.ts @your-org/security-team
