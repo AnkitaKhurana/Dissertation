@@ -365,19 +365,35 @@ async def github_oauth_callback(
     if settings.FRONTEND_CALLBACK_URL:
         # If it's a chrome-extension URL, we need to use a redirect page instead
         if settings.FRONTEND_CALLBACK_URL.startswith("chrome-extension://"):
-            # Return HTML that redirects to extension with token
+            # Return HTML with manual link (browsers block auto-redirect to chrome-extension://)
+            extension_url = f"{settings.FRONTEND_CALLBACK_URL}?token={jwt_token}"
             html_content = f"""
             <!DOCTYPE html>
             <html>
             <head>
-                <title>Redirecting...</title>
+                <title>Authentication Success</title>
+                <style>
+                    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                           display: flex; align-items: center; justify-content: center; height: 100vh; 
+                           margin: 0; background: #0f172a; color: #e2e8f0; }}
+                    .container {{ text-align: center; max-width: 500px; padding: 2rem; }}
+                    h1 {{ color: #22c55e; margin-bottom: 1rem; }}
+                    a {{ display: inline-block; margin-top: 1.5rem; padding: 0.75rem 2rem; 
+                         background: #22c55e; color: #0f172a; text-decoration: none; 
+                         border-radius: 8px; font-weight: 600; }}
+                    a:hover {{ background: #16a34a; }}
+                    p {{ line-height: 1.6; color: #94a3b8; }}
+                </style>
             </head>
             <body>
-                <p>Redirecting to PR Sentinel...</p>
-                <script>
-                    // Redirect to extension with token
-                    window.location.href = "{settings.FRONTEND_CALLBACK_URL}?token={jwt_token}";
-                </script>
+                <div class="container">
+                    <h1>✓ Authentication Successful</h1>
+                    <p>Click the button below to return to PR Sentinel extension:</p>
+                    <a href="{extension_url}">Open PR Sentinel</a>
+                    <p style="margin-top: 2rem; font-size: 0.875rem;">
+                        You can close this tab after clicking the button.
+                    </p>
+                </div>
             </body>
             </html>
             """
