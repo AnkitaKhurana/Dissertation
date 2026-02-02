@@ -398,7 +398,10 @@ async def github_oauth_callback(
             </html>
             """
             from fastapi.responses import HTMLResponse
-            return HTMLResponse(content=html_content)
+            response_obj = HTMLResponse(content=html_content)
+            # Add CSP header to allow the page to load
+            response_obj.headers["Content-Security-Policy"] = "default-src 'self' 'unsafe-inline'"
+            return response_obj
         else:
             # Regular web URL redirect
             callback_url = f"{settings.FRONTEND_CALLBACK_URL}?token={jwt_token}"
