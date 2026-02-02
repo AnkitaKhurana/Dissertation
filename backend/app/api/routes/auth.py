@@ -360,11 +360,41 @@ async def github_oauth_callback(
 
     logger.info("User authenticated successfully", extra={"github_id": github_user.id, "username": github_user.login})
 
-    # Redirect to frontend (extension or web) with token in URL
-    callback_url = f"{settings.FRONTEND_CALLBACK_URL}?token={jwt_token}"
-    logger.info("Redirecting to frontend callback", extra={"callback_url": callback_url})
+    # For web/extension clients, redirect to frontend with token
+    # If FRONTEND_CALLBACK_URL is set, redirect there with token parameter
+    if settings.FRONTEND_CALLBACK_URL:
+        # If it's a chrome-extension URL, we need to use a redirect page instead
+        if settings.FRONTEND_CALLBACK_URL.startswith("chrome-extension://"):
+            # Return HTML that redirects to extension with token
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Redirecting...</title>
+            </head>
+            <body>
+                <p>Redirecting to PR Sentinel...</p>
+                <script>
+                    // Redirect to extension with token
+                    window.location.href = "{settings.FRONTEND_CALLBACK_URL}?token={jwt_token}";
+                </script>
+            </body>
+            </html>
+            """
+            from fastapi.responses import HTMLResponse
+            return HTMLResponse(content=html_content)
+        else:
+            # Regular web URL redirect
+            callback_url = f"{settings.FRONTEND_CALLBACK_URL}?token={jwt_token}"
+            logger.info("Redirecting to frontend callback", extra={"callback_url": callback_url})
+            return RedirectResponse(url=callback_url)
     
-    return RedirectResponse(url=callback_url)
+    # Fallback: return JSON (shouldn't reach here if properly configured)
+    return {
+        "access_token": jwt_token,
+        "token_type": "bearer",
+        "expires_in": expires_in_seconds,
+    }
 
 
 @router.post(
