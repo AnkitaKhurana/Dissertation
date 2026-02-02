@@ -360,11 +360,11 @@ async def github_oauth_callback(
 
     logger.info("User authenticated successfully", extra={"github_id": github_user.id, "username": github_user.login})
 
-    return {
-        "access_token": jwt_token,
-        "token_type": "bearer",
-        "expires_in": expires_in_seconds,
-    }
+    # Redirect to frontend (extension or web) with token in URL
+    callback_url = f"{settings.FRONTEND_CALLBACK_URL}?token={jwt_token}"
+    logger.info("Redirecting to frontend callback", extra={"callback_url": callback_url})
+    
+    return RedirectResponse(url=callback_url)
 
 
 @router.post(

@@ -152,6 +152,11 @@ class Settings(BaseSettings):
         description="GitHub OAuth redirect URI (must match OAuth App settings)",
     )
 
+    FRONTEND_CALLBACK_URL: str = Field(
+        default="http://localhost:5173/src/options.html",
+        description="Frontend URL to redirect to after OAuth (with ?token= appended). For extensions, use chrome-extension://extension-id/src/options.html",
+    )
+
     # ============================================================================
     # GitHub App (Server-Side API Calls)
     # ============================================================================
@@ -422,6 +427,7 @@ class Settings(BaseSettings):
             "jwt-secret": "JWT_SECRET",
             "csrf-secret": "CSRF_SECRET",
             "mongo-uri": "MONGO_URI",
+            "frontend-callback-url": "FRONTEND_CALLBACK_URL",
         }
 
         for vault_secret_name, attr_name in vault_secrets_map.items():
