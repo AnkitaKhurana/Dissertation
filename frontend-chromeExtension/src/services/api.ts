@@ -1,5 +1,7 @@
 const DEFAULT_API_BASE = "https://api.example.com";
 
+import { authService } from "./auth";
+
 interface CreateJobResponse {
   job_id: string;
   status: string;
@@ -18,35 +20,117 @@ interface JobStatusResponse {
   error?: string | null;
 }
 
+/**
+ * Helper to get headers with JWT token
+ */
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const token = await authService.getToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  return headers;
+}
+
+/**
+ * Helper to parse error responses
+ */
+async function parseErrorResponse(res: Response): Promise<string> {
+  try {
+    const data = await res.json();
+    return data.detail || data.error || data.message || `API error ${res.status}`;
+  } catch {
+    return `API error ${res.status}: ${res.statusText}`;
+  }
+}
+
 export const apiClient = {
-  async createJob(prUrl: string, apiHost?: string, token?: string): Promise<CreateJobResponse> {
+  async createJob(prUrl: string, apiHost?: string, agents?: string[]): Promise<CreateJobResponse> {
     const base = apiHost || DEFAULT_API_BASE;
-    const res = await fetch(`${base}/api/v1/analyze-pr`, {
+    const headers = await getAuthHeaders();
+
+    const res = await fetch(`${base}/analyze-pr`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({ pr_url: prUrl, agents_requested: ["code_review"], sync: true }),
+      headers,
+      body: JSON.stringify({
+        pr_url: prUrl,
+        agents_requested: agents || ["code_review"],
+        sync: false, // Use async for large PRs
+      }),
+      credentials: "include",
     });
 
     if (!res.ok) {
-      throw new Error(`API error ${res.status}`);
+      const errorMsg = await parseErrorResponse(res);
+      throw new Error(errorMsg);
     }
 
     return res.json();
   },
 
-  async getJobStatus(jobId: string, apiHost?: string, token?: string): Promise<JobStatusResponse> {
+  async getJobStatus(jobId: string, apiHost?: string): Promise<JobStatusResponse> {
     const base = apiHost || DEFAULT_API_BASE;
-    const res = await fetch(`${base}/api/v1/jobs/${jobId}`, {
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+    const headers = await getAuthHeaders();
+
+    const res = await fetch(`${base}/jobs/${jobId}`, {
+      headers,
+      credentials: "include",
     });
 
     if (!res.ok) {
-      throw new Error(`API error ${res.status}`);
+      const errorMsg = await parseErrorResponse(res);
+      throw new Error(errorMsg);
+    }
+
+    return res.json();
+  },
+
+  async listJobs(apiHost?: string, limit = 10, skip = 0): Promise<{ jobs: JobStatusResponse[]; total: number }> {
+    const base = apiHost || DEFAULT_API_BASE;
+    const headers = await getAuthHeaders();
+
+    const res = await fetch(`${base}/jobs?limit=${limit}&skip=${skip}`, {
+      headers,
+      credentials: "include",
+    });
+
+    if (!res.ok) {
+      const errorMsg = await parseErrorResponse(res);
+      throw new Error(errorMsg);
+    }
+
+    return res.json();
+  },
+
+  async cancelJob(jobId: string, apiHost?: string): Promise<{ success: boolean }> {
+    const base = apiHost || DEFAULT_API_BASE;
+    const headers = await getAuthHeaders();
+
+    const res = await fetch(`${base}/jobs/${jobId}/cancel`, {
+      method: "POST",
+      headers,
+      credentials: "include",
+    });
+
+    if (!res.ok) {
+      const errorMsg = await parseErrorResponse(res);
+      throw new Error(errorMsg);
+    }
+
+    return res.json();
+  },
+
+  async getHealth(apiHost?: string): Promise<{ status: string }> {
+    const base = apiHost || DEFAULT_API_BASE;
+
+    const res = await fetch(`${base}/health`);
+
+    if (!res.ok) {
+      throw new Error(`Health check failed: ${res.statusText}`);
     }
 
     return res.json();
