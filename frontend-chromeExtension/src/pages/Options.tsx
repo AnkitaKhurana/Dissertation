@@ -30,13 +30,14 @@ import { CheckCircle, GitHub, Key, Cloud, Computer } from "@mui/icons-material";
 import { authService } from "../services/auth";
 import { loadPreference, loadSessionValue, savePreference, saveSessionValue } from "../services/storage";
 import { getTheme } from "../theme";
+import { CONFIG } from "../constants/config";
 
 type ThemeMode = "light" | "dark";
 type LLMProvider = "local" | "api_key" | "hosted";
 
 function OptionsApp() {
   // Backend & Auth
-  const [backendUrl, setBackendUrl] = useState("http://localhost:8000/api/v1");
+  const backendUrl = CONFIG.API_BASE_URL;
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState("");
 
@@ -67,7 +68,7 @@ function OptionsApp() {
   useEffect(() => {
     async function load() {
       // Backend & Auth
-      const savedBackend = await loadPreference<string>("backendUrl");
+      await savePreference("backendUrl", CONFIG.API_BASE_URL); // Always use production URL
       const savedAuth = await loadSessionValue<boolean>("isAuthenticated");
       const savedEmail = await loadSessionValue<string>("userEmail");
 
@@ -88,7 +89,6 @@ function OptionsApp() {
       const savedSeverityDisplay = await loadPreference<"icons" | "text" | "both">("severityDisplay");
       const savedRetentionDays = await loadPreference<number>("jobRetentionDays");
 
-      if (savedBackend) setBackendUrl(savedBackend);
       if (savedAuth !== undefined) setIsAuthenticated(savedAuth);
       if (savedEmail) setUserEmail(savedEmail);
 
@@ -111,10 +111,32 @@ function OptionsApp() {
 
   const muiTheme = useMemo(() => getTheme(mode), [mode]);
 
-  // Check auth status on mount
+  // Check auth status on mount and handle OAuth callback
   useEffect(() => {
     async function checkAuth() {
       try {
+        // Check for OAuth callback token in URL
+        const params = new URLSearchParams(window.location.search);
+        const callbackToken = params.get("token");
+        
+        console.log("[Options] URL search params:", window.location.search);
+        console.log("[Options] Extracted token:", callbackToken ? "✓ Found" : "✗ Not found");
+
+        if (callbackToken) {
+          console.log("[Options] Processing OAuth callback with token");
+          // Complete OAuth callback with token
+          await authService.completeOAuthCallback(backendUrl, callbackToken);
+          // Clear the URL parameters
+          window.history.replaceState({}, document.title, window.location.pathname);
+          setIsAuthenticated(true);
+          // Fetch user details
+          const user = await authService.getCurrentUser(backendUrl);
+          setUserEmail(user.email || user.github_username);
+          console.log("[Options] OAuth callback completed, user:", user.github_username);
+          return;
+        }
+
+        // Regular auth check
         const authenticated = await authService.isAuthenticated(backendUrl);
         if (authenticated) {
           const user = await authService.getCurrentUser(backendUrl);
@@ -122,7 +144,7 @@ function OptionsApp() {
           setUserEmail(user.email || user.github_username);
         }
       } catch (error) {
-        console.error("Auth check failed:", error);
+        console.error("[Options] Auth check failed:", error);
       }
     }
     checkAuth();
@@ -192,26 +214,17 @@ function OptionsApp() {
               PR Sentinel Settings
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Configure backend, LLM provider, agents, and preferences
+              Configure agents and preferences
             </Typography>
           </Box>
 
-          {/* Backend & Authentication */}
+          {/* Authentication */}
           <Card>
             <CardContent>
               <Stack spacing={2}>
                 <Typography variant="h6" fontWeight={700}>
-                  Backend & Authentication
+                  Authentication
                 </Typography>
-                <TextField
-                  label="Backend API URL"
-                  value={backendUrl}
-                  onChange={(e) => setBackendUrl(e.target.value)}
-                  fullWidth
-                  helperText="e.g., http://localhost:8000/api/v1 or https://api.yourbackend.com/api/v1"
-                />
-
-                <Divider />
 
                 {isAuthenticated ? (
                   <Stack direction="row" justifyContent="space-between" alignItems="center">

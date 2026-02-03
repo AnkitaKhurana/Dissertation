@@ -45,6 +45,8 @@ export function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [backendError, setBackendError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
 
   useEffect(() => {
     loadPreference("autoAnalyze").then((value) => {
@@ -59,9 +61,31 @@ export function App() {
     const handleOffline = () => setIsOnline(false);
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
+
+    // Listen for job status updates from background script
+    const handleStatusUpdate = (message: any) => {
+      if (message.type === "JOB_STATUS_UPDATE") {
+        const { status: jobStatus, progress: jobProgress, results_so_far, error } = message;
+        setStatus(jobStatus);
+        setProgress(jobProgress || 0);
+        if (results_so_far) {
+          setFindings(results_so_far as Finding[]);
+        }
+        if (error) {
+          setBackendError(error);
+        }
+        if (["completed", "failed", "cancelled"].includes(jobStatus)) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    chrome.runtime.onMessage.addListener(handleStatusUpdate);
+
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      chrome.runtime.onMessage.removeListener(handleStatusUpdate);
     };
   }, []);
 
@@ -71,22 +95,46 @@ export function App() {
     setStatus("running");
     setBackendError(null);
     setIsLoading(true);
+    setProgress(0);
+    setFindings([]);
     try {
       if (!isOnline) {
         setBackendError("No internet connection. Please check your network.");
         setStatus("failed");
+        setIsLoading(false);
         return;
       }
 
-      const result = await apiClient.createJob("https://github.com/org/repo/pull/1");
+      // Get current tab URL (should be a GitHub PR page)
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      const currentTab = tabs[0];
+      const prUrl = currentTab?.url || "https://github.com";
+
+      console.log("[App] Analyzing PR:", prUrl);
+
+      // Get enabled agents from preferences
+      const enabledAgents = await loadPreference("enabledAgents");
+      const agents = Object.entries(enabledAgents || {})
+        .filter(([_, enabled]) => enabled)
+        .map(([agent]) => agent);
+
+      // Get backend URL
+      const backendUrl = await loadPreference<string>("backendUrl");
+
+      const result = await apiClient.createJob(prUrl, backendUrl || undefined, agents);
+      setCurrentJobId(result.jobId);
       setStatus(result.status as typeof status);
+      setProgress(result.progress || 0);
       setFindings((result.results_so_far || []) as Finding[]);
+
+      if (result.status === "completed") {
+        setIsLoading(false);
+      }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Failed to analyze PR. Check backend configuration in Options.";
-      console.error("Analysis error:", err);
+      console.error("[App] Analysis error:", err);
       setBackendError(errorMsg);
       setStatus("failed");
-    } finally {
       setIsLoading(false);
     }
   };
@@ -176,6 +224,25 @@ export function App() {
                     </Stack>
                   </Alert>
                 )}
+
+                {status === "running" && (
+                  <Stack spacing={1}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Typography variant="body2">Analysis in progress...</Typography>
+                      <Typography variant="caption">{Math.round(progress * 100)}%</Typography>
+                    </Stack>
+                    <Box sx={{ width: "100%", height: 4, bgcolor: "rgba(255,255,255,0.1)", borderRadius: 2, overflow: "hidden" }}>
+                      <Box sx={{ width: `${progress * 100}%`, height: "100%", bgcolor: "#22c55e", transition: "width 0.3s" }} />
+                    </Box>
+                  </Stack>
+                )}
+
+                {status === "pending" && !isLoading && (
+                  <Button variant="contained" fullWidth onClick={triggerAnalyze} disabled={!isOnline}>
+                    Analyze PR
+                  </Button>
+                )}
+
                 {isLoading ? (
                   <FindingsListSkeleton count={3} />
                 ) : findings.length === 0 ? (

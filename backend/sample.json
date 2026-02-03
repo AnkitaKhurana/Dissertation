@@ -1,0 +1,180 @@
+{
+    "job_id": "697b41593fcb0524013f1ee7",
+    "status": "completed",
+    "status_url": "/api/v1/jobs/697b41593fcb0524013f1ee7",
+    "created_at": "2026-01-29T11:15:37.371000",
+    "results_so_far": [
+        {
+            "file_path": "packages/react-native-codegen/src/generators/RNCodegen.js",
+            "line_number": 257,
+            "severity": "medium",
+            "agent": "code_review",
+            "message": "New option 'generateOptionalProperties' is added but its usage is not clearly documented.",
+            "suggested_code": "Add documentation for the new option 'generateOptionalProperties'.",
+            "confidence": 0.8
+        },
+        {
+            "file_path": "packages/react-native-codegen/src/generators/components/GenerateEventEmitterCpp.js",
+            "line_number": 98,
+            "severity": "low",
+            "agent": "code_review",
+            "message": "The function 'generateSetter' has many parameters and is hard to read. Consider breaking it down into smaller functions.",
+            "suggested_code": "Break down the function 'generateSetter' into smaller functions for better readability.",
+            "confidence": 0.6
+        },
+        {
+            "file_path": "packages/react-native-codegen/src/generators/components/GenerateEventEmitterH.js",
+            "line_number": 118,
+            "severity": "medium",
+            "agent": "code_review",
+            "message": "The function 'getNativeTypeFromAnnotation' has many cases and is hard to maintain. Consider using a more dynamic approach.",
+            "suggested_code": "Use a more dynamic approach to handle different cases in the function 'getNativeTypeFromAnnotation'.",
+            "confidence": 0.7
+        },
+        {
+            "file_path": "packages/react-native-codegen/src/generators/components/GenerateEventEmitterH.js",
+            "line_number": 221,
+            "severity": "low",
+            "agent": "code_review",
+            "message": "The function 'generateStruct' has many parameters and is hard to read. Consider breaking it down into smaller functions.",
+            "suggested_code": "Break down the function 'generateStruct' into smaller functions for better readability.",
+            "confidence": 0.6
+        },
+        {
+            "file_path": "packages/react-native-codegen/src/generators/RNCodegen.js",
+            "line_number": 422,
+            "severity": "medium",
+            "agent": "code_review",
+            "message": "The option 'generateOptionalProperties' is not validated. Consider adding validation for this option.",
+            "suggested_code": "Add validation for the option 'generateOptionalProperties'.",
+            "confidence": 0.8
+        },
+        {
+            "file_path": "packages/react-native-codegen/src/generators/RNCodegen.js",
+            "line_number": 257,
+            "severity": "medium",
+            "agent": "security",
+            "message": "New option 'generateOptionalProperties' is introduced without proper validation",
+            "suggested_code": "if (typeof generateOptionalProperties !== 'boolean') { throw new Error('generateOptionalProperties must be a boolean'); }",
+            "confidence": 0.8
+        },
+        {
+            "file_path": "packages/react-native-codegen/src/generators/components/GenerateEventEmitterCpp.js",
+            "line_number": 98,
+            "severity": "low",
+            "agent": "security",
+            "message": "Potential null pointer dereference in 'generateSetter' function",
+            "suggested_code": "if (property === null || property === undefined) { throw new Error('Property cannot be null or undefined'); }",
+            "confidence": 0.6
+        },
+        {
+            "file_path": "packages/react-native-codegen/src/generators/components/GenerateEventEmitterH.js",
+            "line_number": 118,
+            "severity": "medium",
+            "agent": "security",
+            "message": "New option 'generateOptionalProperties' is introduced without proper validation",
+            "suggested_code": "if (typeof generateOptionalProperties !== 'boolean') { throw new Error('generateOptionalProperties must be a boolean'); }",
+            "confidence": 0.8
+        },
+        {
+            "file_path": "packages/react-native-codegen/src/generators/components/GenerateEventEmitterH.js",
+            "line_number": 187,
+            "severity": "low",
+            "agent": "security",
+            "message": "Potential null pointer dereference in 'handleGenerateStructForArray' function",
+            "suggested_code": "if (elementType === null || elementType === undefined) { throw new Error('ElementType cannot be null or undefined'); }",
+            "confidence": 0.6
+        },
+        {
+            "file_path": "packages/react-native-codegen/src/generators/components/GenerateEventEmitterH.js",
+            "line_number": 221,
+            "severity": "medium",
+            "agent": "security",
+            "message": "New option 'generateOptionalProperties' is introduced without proper validation",
+            "suggested_code": "if (typeof generateOptionalProperties !== 'boolean') { throw new Error('generateOptionalProperties must be a boolean'); }",
+            "confidence": 0.8
+        },
+        {
+            "file_path": "packages/react-native-codegen/src/generators/RNCodegen.js",
+            "line_number": 257,
+            "severity": "medium",
+            "agent": "tests",
+            "message": "New option 'generateOptionalProperties' is added but its usage is not fully tested.",
+            "suggested_code": "Add more test cases to cover the usage of 'generateOptionalProperties' option.",
+            "confidence": 0.8
+        },
+        {
+            "file_path": "packages/react-native-codegen/src/generators/components/GenerateEventEmitterCpp.js",
+            "line_number": 98,
+            "severity": "low",
+            "agent": "tests",
+            "message": "The function 'generateSetter' has been modified to handle optional properties. However, its usage is not fully tested.",
+            "suggested_code": "Add more test cases to cover the usage of 'generateSetter' function with optional properties.",
+            "confidence": 0.6
+        },
+        {
+            "file_path": "packages/react-native-codegen/src/generators/components/GenerateEventEmitterH.js",
+            "line_number": 118,
+            "severity": "medium",
+            "agent": "tests",
+            "message": "The function 'getNativeTypeFromAnnotation' has been modified to handle optional properties. However, its usage is not fully tested.",
+            "suggested_code": "Add more test cases to cover the usage of 'getNativeTypeFromAnnotation' function with optional properties.",
+            "confidence": 0.7
+        },
+        {
+            "file_path": "packages/react-native-codegen/src/generators/components/GenerateEventEmitterH.js",
+            "line_number": 221,
+            "severity": "low",
+            "agent": "tests",
+            "message": "The function 'generateStruct' has been modified to handle optional properties. However, its usage is not fully tested.",
+            "suggested_code": "Add more test cases to cover the usage of 'generateStruct' function with optional properties.",
+            "confidence": 0.5
+        },
+        {
+            "file_path": "packages/react-native-codegen/src/generators/RNCodegen.js",
+            "line_number": 257,
+            "severity": "medium",
+            "agent": "maintainability",
+            "message": "New option 'generateOptionalProperties' is added but its usage is not clearly documented.",
+            "suggested_code": "Add documentation for the new option 'generateOptionalProperties' to explain its purpose and usage.",
+            "confidence": 0.8
+        },
+        {
+            "file_path": "packages/react-native-codegen/src/generators/components/GenerateEventEmitterCpp.js",
+            "line_number": 98,
+            "severity": "low",
+            "agent": "maintainability",
+            "message": "The function 'generateSetter' has many parameters and is complex. Consider breaking it down into smaller functions for better readability and maintainability.",
+            "suggested_code": "Break down the 'generateSetter' function into smaller functions, each with a single responsibility.",
+            "confidence": 0.6
+        },
+        {
+            "file_path": "packages/react-native-codegen/src/generators/components/GenerateEventEmitterH.js",
+            "line_number": 118,
+            "severity": "medium",
+            "agent": "maintainability",
+            "message": "The function 'getNativeTypeFromAnnotation' has many cases and is complex. Consider using a more object-oriented approach to handle different types.",
+            "suggested_code": "Use a more object-oriented approach, such as using a dictionary to map types to their corresponding native types.",
+            "confidence": 0.7
+        },
+        {
+            "file_path": "packages/react-native-codegen/src/generators/components/GenerateEventEmitterH.js",
+            "line_number": 221,
+            "severity": "low",
+            "agent": "maintainability",
+            "message": "The function 'generateStruct' has many parameters and is complex. Consider breaking it down into smaller functions for better readability and maintainability.",
+            "suggested_code": "Break down the 'generateStruct' function into smaller functions, each with a single responsibility.",
+            "confidence": 0.6
+        },
+        {
+            "file_path": "packages/react-native-codegen/src/generators/RNCodegen.js",
+            "line_number": 422,
+            "severity": "medium",
+            "agent": "maintainability",
+            "message": "The option 'generateOptionalProperties' is not validated. Consider adding validation to ensure it is a boolean value.",
+            "suggested_code": "Add validation to ensure 'generateOptionalProperties' is a boolean value.",
+            "confidence": 0.8
+        }
+    ],
+    "progress": 1.0
+}
