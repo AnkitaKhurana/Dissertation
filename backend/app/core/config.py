@@ -105,7 +105,10 @@ class Settings(BaseSettings):
     )
 
     ALLOWED_ORIGINS: List[str] = Field(
-        default=["http://localhost:5173", "chrome-extension://*"],
+        default=[
+            "http://localhost:5173",
+            "chrome-extension://ikcddkikdefmhflhdbiigcamjdkgcpel",
+        ],
         description="CORS allowed origins",
     )
 
