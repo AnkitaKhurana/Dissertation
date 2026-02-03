@@ -2,7 +2,7 @@ import { apiClient } from "../services/api";
 import { loadPreference, loadSessionValue, savePreference } from "../services/storage";
 import { AnalyzeResponse, ExtensionMessage, JobStatusPayload } from "./types";
 
-const BACKOFF_MS = [1000, 2000, 5000, 10000];
+const BACKOFF_MS = [1000, 2000, 5000, 10000, 15000, 20000, 30000];  // Poll for up to ~83 seconds
 
 chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendResponse) => {
   if (!navigator.onLine) {

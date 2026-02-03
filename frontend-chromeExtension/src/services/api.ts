@@ -53,11 +53,14 @@ export const apiClient = {
     const base = apiHost || DEFAULT_API_BASE;
     const headers = await getAuthHeaders();
 
+    // Normalize PR URL by removing /changes, /files, or other suffixes
+    const normalizedUrl = prUrl.replace(/\/(changes|files|commits|comments|checks|reviews).*$/, "");
+
     const res = await fetch(`${base}/analyze-pr`, {
       method: "POST",
       headers,
       body: JSON.stringify({
-        pr_url: prUrl,
+        pr_url: normalizedUrl,
         agents_requested: agents || ["code_review"],
         sync: false, // Use async for large PRs
       }),
