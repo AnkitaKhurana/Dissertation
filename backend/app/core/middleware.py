@@ -109,6 +109,10 @@ async def jwt_middleware(request: Request, call_next):
     Returns:
         Response from next handler
     """
+    # Skip CORS preflight OPTIONS requests
+    if request.method == "OPTIONS":
+        return await call_next(request)
+    
     # Skip middleware for OAuth routes and health checks
     public_auth_paths = ["/api/v1/auth/github", "/api/v1/auth/github/callback", "/api/v1/auth/logout"]
     if request.url.path in public_auth_paths or request.url.path.startswith("/health"):
