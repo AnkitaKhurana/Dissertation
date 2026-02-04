@@ -122,7 +122,39 @@ async def jwt_middleware(request: Request, call_next):
     if request.url.path in ["/docs", "/redoc", "/openapi.json"]:
         return await call_next(request)
 
-    # For protected routes, require token
+    # Allow unauthenticated access to analyze-pr and jobs endpoints (for Chrome extension)
+    if request.url.path.startswith("/api/v1/analyze-pr") or request.url.path.startswith("/api/v1/jobs"):
+        # Try to get token if provided, but don't require it
+        token = extract_token_from_request(request)
+        if token:
+            try:
+                payload = validate_jwt_token(token)
+                user_id = payload.get("sub")
+                if user_id:
+                    request.state.user_id = user_id
+                    request.state.github_username = payload.get("github_username")
+                    # Fetch and cache user tier for rate limiting
+                    try:
+                        from app.services.job_store import get_job_store
+                        job_store = await get_job_store()
+                        users_collection = job_store.db["users"]
+                        user = await users_collection.find_one({"gh_id": int(user_id)})
+                        request.state.user_tier = user.get("tier", "free") if user else "free"
+                    except Exception:
+                        request.state.user_tier = "free"
+            except Exception as e:
+                logger.warning(f"Token validation failed: {e}", extra={"path": request.url.path})
+                # Fall through to anonymous mode
+        
+        # If no token or invalid token, use anonymous user (extension use case)
+        if not hasattr(request.state, "user_id"):
+            request.state.user_id = "anonymous"
+            request.state.github_username = "anonymous"
+            request.state.user_tier = "free"
+        
+        return await call_next(request)
+
+    # For other protected routes, require token
     token = extract_token_from_request(request)
     if not token:
         logger.warning("No JWT token provided", extra={"path": request.url.path})
