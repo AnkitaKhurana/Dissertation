@@ -26,16 +26,24 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendRes
 async function handleAnalyze(prUrl: string, agents?: string[]): Promise<AnalyzeResponse> {
   try {
     const apiHost = await loadPreference<string>("backendUrl");
+    console.log("[Background] Creating job with apiHost:", apiHost);
     const response = await apiClient.createJob(prUrl, apiHost || undefined, agents);
+    console.log("[Background] API Response:", JSON.stringify(response, null, 2));
+    
+    if (!response || !response.job_id) {
+      throw new Error("No job_id in response");
+    }
+    
     console.log("[Background] Job created:", response.job_id);
-    persistRecentJob({
+    await persistRecentJob({
       jobId: response.job_id,
       status: response.status,
       progress: response.progress,
       results_so_far: response.results_so_far,
       last_updated: response.created_at,
     });
-    pollJob(response.job_id, apiHost);
+    // Start polling in background (don't await, let it run async)
+    void pollJob(response.job_id, apiHost);
     return {
       jobId: response.job_id,
       status: response.status,
@@ -43,8 +51,9 @@ async function handleAnalyze(prUrl: string, agents?: string[]): Promise<AnalyzeR
       last_updated: response.created_at,
     };
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    const errorMsg = error instanceof Error ? error.message : String(error);
     console.error("[Background] Analysis error:", errorMsg);
+    console.error("[Background] Full error:", error);
     return {
       error: errorMsg,
       jobId: "",
@@ -97,7 +106,7 @@ async function pollJob(jobId: string, apiHost?: string) {
       });
       if (["completed", "failed", "cancelled"].includes(status.status)) {
         console.log("[Background] Job poll completed with status:", status.status);
-        persistRecentJob(payload);
+        await persistRecentJob(payload);
         break;
       }
     } catch (err) {

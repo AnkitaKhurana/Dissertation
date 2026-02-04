@@ -42,8 +42,10 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 async function parseErrorResponse(res: Response): Promise<string> {
   try {
     const data = await res.json();
+    console.warn("[API] Error response:", { status: res.status, data });
     return data.detail || data.error || data.message || `API error ${res.status}`;
   } catch {
+    console.warn("[API] Failed to parse error response, status:", res.status, res.statusText);
     return `API error ${res.status}: ${res.statusText}`;
   }
 }
@@ -52,11 +54,14 @@ export const apiClient = {
   async createJob(prUrl: string, apiHost?: string, agents?: string[]): Promise<CreateJobResponse> {
     const base = apiHost || DEFAULT_API_BASE;
     const headers = await getAuthHeaders();
+    const url = `${base}/analyze-pr`;
+    
+    console.log("[API] Creating job:", { url, prUrl, agents, headers });
 
     // Normalize PR URL by removing /changes, /files, or other suffixes
     const normalizedUrl = prUrl.replace(/\/(changes|files|commits|comments|checks|reviews).*$/, "");
 
-    const res = await fetch(`${base}/analyze-pr`, {
+    const res = await fetch(url, {
       method: "POST",
       headers,
       body: JSON.stringify({
