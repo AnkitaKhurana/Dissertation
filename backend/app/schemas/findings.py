@@ -40,9 +40,9 @@ class Finding(BaseModel):
 
     line_number: int = Field(
         ...,
-        ge=1,
-        description="Line number where the issue was found (1-indexed)",
-        examples=[42, 123],
+        ge=0,
+        description="Line number where the issue was found (0 = file-level, >= 1 = specific line)",
+        examples=[0, 42, 123],
     )
 
     severity: SeverityLevel = Field(

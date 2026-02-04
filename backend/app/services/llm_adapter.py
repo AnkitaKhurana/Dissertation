@@ -279,11 +279,11 @@ class GroqAdapter(LLMAdapter):
         )
         return [
             Finding(
-                file_path="unknown",
-                line_number=0,
+                file_path="PR_SUMMARY.txt",
+                line_number=1,
                 severity="info",
-                agent="groq-fallback",
-                message=generated_text[:500],
+                agent="code_review",
+                message=f"LLM returned unstructured response: {generated_text[:500]}",
                 confidence=0.3,
             )
         ]
