@@ -61,17 +61,18 @@ class LangGraphOrchestrator:
             await self.jobs.update_job_status(job_id, JobStatus.FAILED, error=str(exc))
             return
 
+        all_findings = []  # Collect findings from all agents
         for idx, agent in enumerate(agents, start=1):
             prompt = self._build_prompt(agent, pr_url, diff_text)
             await self._persist_agent_state(job_id, pr_url, agent, status="running")
             try:
                 findings = await self.llm.analyze(prompt)
+                all_findings.extend(findings)  # Collect findings
             except Exception as exc:  # pragma: no cover
                 logger.error("Agent failed", extra={"agent": agent, "job_id": job_id}, exc_info=True)
                 await self.jobs.update_job_status(job_id, JobStatus.FAILED, error=str(exc))
                 return
 
-            await self.jobs.append_findings(job_id, [f.model_dump() for f in findings])
             await self._persist_agent_state(job_id, pr_url, agent, status="completed", findings=findings)
 
             # Update progress for long-running jobs
@@ -81,6 +82,13 @@ class LangGraphOrchestrator:
                 {"$set": {"progress": progress, "last_updated": datetime.utcnow()}},
             )
 
+        # Deduplicate findings before storing
+        deduplicated = self._deduplicate_findings(all_findings)
+        logger.info(
+            "Deduplicated findings",
+            extra={"job_id": job_id, "before": len(all_findings), "after": len(deduplicated)}
+        )
+        await self.jobs.append_findings(job_id, [f.model_dump() for f in deduplicated])
         await self.jobs.update_job_status(job_id, JobStatus.COMPLETED)
 
     def _build_prompt(self, agent: str, pr_url: str, diff_text: str) -> str:
@@ -113,6 +121,21 @@ class LangGraphOrchestrator:
         except FileNotFoundError:  # pragma: no cover - defensive
             logger.warning("Prompt file missing", extra={"file": str(path)})
             return ""
+
+    def _deduplicate_findings(self, findings: List[Finding]) -> List[Finding]:
+        """
+        Deduplicate findings based on file_path, line_number, and message.
+        Keeps the first occurrence of each unique finding.
+        """
+        seen = set()
+        deduplicated = []
+        for finding in findings:
+            # Create a unique key for this finding (file + line + message)
+            key = (finding.file_path, finding.line_number, finding.message)
+            if key not in seen:
+                seen.add(key)
+                deduplicated.append(finding)
+        return deduplicated
 
     async def _persist_agent_state(
         self, job_id: str, pr_url: str, agent: str, status: str, findings: List[Finding] | None = None
