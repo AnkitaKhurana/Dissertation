@@ -136,7 +136,11 @@ def create_app() -> FastAPI:
     # The last middleware added will execute FIRST. We need CORS to run FIRST,
     # so it's added LAST.
 
-    # Security headers middleware (added first, runs last)
+    # Correlation ID middleware - ADDED FIRST, RUNS LAST (initializes request.state)
+    # This must run last so that request.state is available to all other middleware
+    app.add_middleware(CorrelationIdMiddleware)
+
+    # Security headers middleware (added next, runs second to last)
     @app.middleware("http")
     async def add_security_headers(request: Request, call_next):
         response = await call_next(request)
