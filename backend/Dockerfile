@@ -1,5 +1,6 @@
 # PR Sentinel Backend — Multi-Stage Dockerfile
 # Build optimized Docker image for production with health checks and non-root user
+# Updated: 2026-02-04 - JWT middleware fix deployed for Chrome extension auth bypass
 
 # ============================================================================
 # Stage 1: Base
