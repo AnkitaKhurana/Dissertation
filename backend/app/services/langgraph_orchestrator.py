@@ -52,7 +52,9 @@ class LangGraphOrchestrator:
         self.prompt_dir = Path(__file__).resolve().parent.parent / "LLM" / "prompts"
 
     async def run_analysis(self, job_id: str, pr_url: str) -> None:
-        """Run all agents sequentially (scaffold)."""
+        """Run all agents sequentially with incremental results."""
+        import asyncio
+        
         agents = ["code_review", "security", "tests", "maintainability"]
         try:
             diff_text = await self.github.fetch_pr_diff(pr_url)
@@ -61,17 +63,30 @@ class LangGraphOrchestrator:
             await self.jobs.update_job_status(job_id, JobStatus.FAILED, error=str(exc))
             return
 
-        all_findings = []  # Collect findings from all agents
         for idx, agent in enumerate(agents, start=1):
             prompt = self._build_prompt(agent, pr_url, diff_text)
             await self._persist_agent_state(job_id, pr_url, agent, status="running")
+            
             try:
                 findings = await self.llm.analyze(prompt)
-                all_findings.extend(findings)  # Collect findings
+                
+                # Append findings immediately (incremental updates)
+                if findings:
+                    await self.jobs.append_findings(job_id, [f.model_dump() for f in findings])
+                    logger.info(
+                        "Agent completed",
+                        extra={"job_id": job_id, "agent": agent, "findings": len(findings)}
+                    )
+                
             except Exception as exc:  # pragma: no cover
                 logger.error("Agent failed", extra={"agent": agent, "job_id": job_id}, exc_info=True)
-                await self.jobs.update_job_status(job_id, JobStatus.FAILED, error=str(exc))
-                return
+                # Continue to next agent instead of failing entire job
+                await self._persist_agent_state(job_id, pr_url, agent, status="failed", findings=[])
+                
+                # Add delay to respect Groq rate limit (10 req/min = 1 req per 6 sec)
+                if idx < len(agents):
+                    await asyncio.sleep(8)
+                continue
 
             await self._persist_agent_state(job_id, pr_url, agent, status="completed", findings=findings)
 
@@ -81,14 +96,15 @@ class LangGraphOrchestrator:
                 {"_id": ObjectId(job_id)},
                 {"$set": {"progress": progress, "last_updated": datetime.utcnow()}},
             )
+            
+            # Add delay between agents to respect rate limits (8 seconds = ~7.5 req/min)
+            if idx < len(agents):
+                logger.info(
+                    "Waiting before next agent",
+                    extra={"job_id": job_id, "next_agent": agents[idx], "delay_seconds": 8}
+                )
+                await asyncio.sleep(8)
 
-        # Deduplicate findings before storing
-        deduplicated = self._deduplicate_findings(all_findings)
-        logger.info(
-            "Deduplicated findings",
-            extra={"job_id": job_id, "before": len(all_findings), "after": len(deduplicated)}
-        )
-        await self.jobs.append_findings(job_id, [f.model_dump() for f in deduplicated])
         await self.jobs.update_job_status(job_id, JobStatus.COMPLETED)
 
     def _build_prompt(self, agent: str, pr_url: str, diff_text: str) -> str:
