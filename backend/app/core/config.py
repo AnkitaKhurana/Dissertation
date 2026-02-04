@@ -107,7 +107,9 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: List[str] = Field(
         default=[
             "http://localhost:5173",
+            "http://localhost:3000",
             "chrome-extension://ikcddkikdefmhflhdbiigcamjdkgcpel",
+            "chrome-extension://*",  # Allow all chrome extensions (restrict in production)
         ],
         description="CORS allowed origins",
     )

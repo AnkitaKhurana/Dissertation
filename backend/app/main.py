@@ -17,7 +17,6 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request, status
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -134,15 +133,63 @@ def create_app() -> FastAPI:
     # Middleware
     # ============================================================================
 
-    # CORS middleware
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.ALLOWED_ORIGINS,
-        allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["*", "Authorization"],
-        expose_headers=["X-Correlation-ID"],
-    )
+    # CORS middleware - need to handle chrome extensions specially
+    @app.middleware("http")
+    async def cors_middleware(request: Request, call_next):
+        origin = request.headers.get("origin", "")
+        
+        # Check if origin is allowed (including wildcard support)
+        is_allowed = False
+        for allowed_origin in settings.ALLOWED_ORIGINS:
+            if allowed_origin == "*":
+                is_allowed = True
+                break
+            elif allowed_origin.endswith("*"):
+                # Handle wildcards like "chrome-extension://*"
+                pattern = allowed_origin.replace("*", "")
+                if origin.startswith(pattern):
+                    is_allowed = True
+                    break
+            elif origin == allowed_origin:
+                is_allowed = True
+                break
+        
+        # Handle preflight requests
+        if request.method == "OPTIONS":
+            if is_allowed:
+                return JSONResponse(
+                    status_code=200,
+                    content={},
+                    headers={
+                        "Access-Control-Allow-Origin": origin or "*",
+                        "Access-Control-Allow-Credentials": "true",
+                        "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+                        "Access-Control-Allow-Headers": request.headers.get("access-control-request-headers", "*"),
+                        "Access-Control-Max-Age": "3600",
+                    },
+                )
+            return JSONResponse(status_code=403, content={"detail": "CORS policy violation"})
+        
+        # Process the request
+        response = await call_next(request)
+        
+        # Add CORS headers to response
+        if is_allowed:
+            response.headers["Access-Control-Allow-Origin"] = origin or "*"
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Expose-Headers"] = "X-Correlation-ID, Content-Type"
+        
+        return response
+
+    # Default CORS middleware (kept as fallback for any routes not covered above)
+    # app.add_middleware(
+    #     CORSMiddleware,
+    #     allow_origins=settings.ALLOWED_ORIGINS,
+    #     allow_credentials=True,
+    #     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    #     allow_headers=["*", "Authorization"],
+    #     expose_headers=["X-Correlation-ID"],
+    # )
 
     # JWT authentication middleware
     app.middleware("http")(jwt_middleware)
