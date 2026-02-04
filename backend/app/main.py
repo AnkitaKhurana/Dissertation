@@ -132,8 +132,36 @@ def create_app() -> FastAPI:
     # ============================================================================
     # Middleware
     # ============================================================================
+    # NOTE: Middleware execution order is LIFO (Last-In-First-Out) in FastAPI
+    # The last middleware added will execute FIRST. We need CORS to run FIRST,
+    # so it's added LAST.
 
-    # CORS middleware - need to handle chrome extensions specially
+    # Security headers middleware (added first, runs last)
+    @app.middleware("http")
+    async def add_security_headers(request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers[
+            "Content-Security-Policy"
+        ] = "default-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'self'"
+        response.headers[
+            "Permissions-Policy"
+        ] = "geolocation=(), microphone=(), camera=()"
+        return response
+
+    # JWT authentication middleware
+    app.middleware("http")(jwt_middleware)
+
+    # Rate limiting
+    if settings.RATE_LIMIT_ENABLED:
+        app.state.limiter = limiter
+        app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+    # CORS middleware - ADDED LAST SO IT RUNS FIRST (handles preflight & origin checking)
     @app.middleware("http")
     async def cors_middleware(request: Request, call_next):
         origin = request.headers.get("origin", "")
@@ -154,7 +182,7 @@ def create_app() -> FastAPI:
                 is_allowed = True
                 break
         
-        # Handle preflight requests
+        # Handle preflight requests (bypass JWT check)
         if request.method == "OPTIONS":
             if is_allowed:
                 return JSONResponse(
@@ -170,7 +198,7 @@ def create_app() -> FastAPI:
                 )
             return JSONResponse(status_code=403, content={"detail": "CORS policy violation"})
         
-        # Process the request
+        # Process the request through remaining middleware/routes
         response = await call_next(request)
         
         # Add CORS headers to response
@@ -179,41 +207,6 @@ def create_app() -> FastAPI:
             response.headers["Access-Control-Allow-Credentials"] = "true"
             response.headers["Access-Control-Expose-Headers"] = "X-Correlation-ID, Content-Type"
         
-        return response
-
-    # Default CORS middleware (kept as fallback for any routes not covered above)
-    # app.add_middleware(
-    #     CORSMiddleware,
-    #     allow_origins=settings.ALLOWED_ORIGINS,
-    #     allow_credentials=True,
-    #     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    #     allow_headers=["*", "Authorization"],
-    #     expose_headers=["X-Correlation-ID"],
-    # )
-
-    # JWT authentication middleware
-    app.middleware("http")(jwt_middleware)
-
-    # Rate limiting
-    if settings.RATE_LIMIT_ENABLED:
-        app.state.limiter = limiter
-        app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
-    # Security headers middleware
-    @app.middleware("http")
-    async def add_security_headers(request: Request, call_next):
-        response = await call_next(request)
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers[
-            "Content-Security-Policy"
-        ] = "default-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'self'"
-        response.headers[
-            "Permissions-Policy"
-        ] = "geolocation=(), microphone=(), camera=()"
         return response
 
     # ============================================================================

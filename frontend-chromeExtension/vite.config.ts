@@ -19,6 +19,7 @@ export default defineConfig({
         offscreen: resolve(__dirname, "src/extension/offscreen.ts"),
       },
       output: {
+        format: "es",
         entryFileNames: (chunkInfo) => {
           if (chunkInfo.name === "background") return "background.js";
           if (chunkInfo.name === "content") return "content.js";

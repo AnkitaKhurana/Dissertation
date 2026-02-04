@@ -121,7 +121,16 @@ export function App() {
       // Get backend URL
       const backendUrl = await loadPreference<string>("backendUrl");
 
-      const result = await apiClient.createJob(prUrl, backendUrl || undefined, agents);
+      const result = await chrome.runtime.sendMessage({
+        type: "ANALYZE_PR",
+        prUrl,
+        agents,
+      });
+
+      if (result?.error) {
+        throw new Error(result.error);
+      }
+
       setCurrentJobId(result.jobId);
       setStatus(result.status as typeof status);
       setProgress(result.progress || 0);
@@ -238,9 +247,9 @@ export function App() {
                 )}
 
                 {status === "pending" && !isLoading && (
-                  <Button variant="contained" fullWidth onClick={triggerAnalyze} disabled={!isOnline}>
-                    Analyze PR
-                  </Button>
+                  <Alert severity="info">
+                    Use the "Analyze PR" button on the GitHub PR page header.
+                  </Alert>
                 )}
 
                 {isLoading ? (
@@ -296,17 +305,9 @@ export function App() {
             </CardContent>
             <Divider />
             <CardContent>
-              <Button 
-                fullWidth 
-                variant="contained" 
-                color="primary" 
-                onClick={triggerAnalyze} 
-                disabled={!isOnline || backendError !== null || isLoading}
-                aria-label="Analyze current pull request"
-                aria-describedby={backendError ? "backend-error-message" : undefined}
-              >
-                {isLoading ? "Analyzing..." : "Analyze Current PR"}
-              </Button>
+              <Alert severity="info">
+                Analysis runs from the GitHub PR page header. Open a PR and click "Analyze PR" at the top.
+              </Alert>
             </CardContent>
           </Card>
         </Stack>
