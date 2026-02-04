@@ -336,7 +336,7 @@ class Settings(BaseSettings):
     # ============================================================================
 
     JOB_RETENTION_FREE_TIER: int = Field(
-        default=86400,  # 1 day
+        default=604800,  # 7 days
         description="Job retention for free tier users (seconds)",
     )
 
