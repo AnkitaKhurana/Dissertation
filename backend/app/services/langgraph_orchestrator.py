@@ -52,7 +52,7 @@ class LangGraphOrchestrator:
         self.prompt_dir = Path(__file__).resolve().parent.parent / "LLM" / "prompts"
 
     async def run_analysis(self, job_id: str, pr_url: str) -> None:
-        """Run all agents sequentially with incremental results."""
+        """Run all agents sequentially with incremental, deduplicated results."""
         import asyncio
         
         agents = ["code_review", "security", "tests", "maintainability"]
@@ -63,6 +63,9 @@ class LangGraphOrchestrator:
             await self.jobs.update_job_status(job_id, JobStatus.FAILED, error=str(exc))
             return
 
+        all_findings = []  # Track all findings to deduplicate
+        seen_keys = set()  # Track unique (file_path, line_number, message) combinations
+        
         for idx, agent in enumerate(agents, start=1):
             prompt = self._build_prompt(agent, pr_url, diff_text)
             await self._persist_agent_state(job_id, pr_url, agent, status="running")
@@ -70,12 +73,27 @@ class LangGraphOrchestrator:
             try:
                 findings = await self.llm.analyze(prompt)
                 
-                # Append findings immediately (incremental updates)
-                if findings:
-                    await self.jobs.append_findings(job_id, [f.model_dump() for f in findings])
+                # Deduplicate findings before appending
+                unique_findings = []
+                for finding in findings:
+                    key = (finding.file_path, finding.line_number, finding.message)
+                    if key not in seen_keys:
+                        seen_keys.add(key)
+                        unique_findings.append(finding)
+                        all_findings.append(finding)
+                
+                # Append only new unique findings (incremental updates)
+                if unique_findings:
+                    await self.jobs.append_findings(job_id, [f.model_dump() for f in unique_findings])
                     logger.info(
                         "Agent completed",
-                        extra={"job_id": job_id, "agent": agent, "findings": len(findings)}
+                        extra={
+                            "job_id": job_id,
+                            "agent": agent,
+                            "findings": len(findings),
+                            "unique": len(unique_findings),
+                            "duplicates": len(findings) - len(unique_findings)
+                        }
                     )
                 
             except Exception as exc:  # pragma: no cover

@@ -11,6 +11,7 @@ Exported Classes:
 """
 
 from typing import Literal, Optional
+from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -23,6 +24,7 @@ class Finding(BaseModel):
     Individual finding from an LLM agent.
 
     Attributes:
+        id: Unique identifier for this finding (UUID)
         file_path: Relative path to file in PR (e.g., "src/main.py")
         line_number: Line number where issue was found (1-indexed)
         severity: Issue severity level
@@ -31,6 +33,12 @@ class Finding(BaseModel):
         suggested_code: Optional code suggestion to fix the issue
         confidence: Confidence score (0.0 to 1.0)
     """
+
+    id: str = Field(
+        default_factory=lambda: str(uuid4()),
+        description="Unique identifier for this finding",
+        examples=["550e8400-e29b-41d4-a716-446655440000"],
+    )
 
     file_path: str = Field(
         ...,
