@@ -5,21 +5,55 @@ import { AnalyzeResponse, ExtensionMessage, JobStatusPayload } from "./types";
 const BACKOFF_MS = [1000, 2000, 5000, 10000, 15000, 20000, 30000];  // Poll for up to ~83 seconds
 
 chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendResponse) => {
+  // Handle offline state
   if (!navigator.onLine) {
     sendResponse({ type: "OFFLINE" });
-    return true;
+    return false;
   }
 
+  // Handle ANALYZE_PR
   if (message.type === "ANALYZE_PR") {
-    handleAnalyze(message.prUrl, message.agents).then((res) => sendResponse(res));
-    return true; // keep channel open
+    handleAnalyze(message.prUrl, message.agents)
+      .then((res) => {
+        try {
+          sendResponse(res);
+        } catch (e) {
+          console.error("[Background] Failed to send analyze response:", e);
+        }
+      })
+      .catch((err) => {
+        console.error("[Background] handleAnalyze error:", err);
+        try {
+          sendResponse({ error: String(err), jobId: "", status: "failed", last_updated: new Date().toISOString() });
+        } catch (e) {
+          console.error("[Background] Failed to send error response:", e);
+        }
+      });
+    return true; // Keep channel open for async response
   }
 
+  // Handle GET_STATUS
   if (message.type === "GET_STATUS") {
-    handleStatusPoll(message.jobId).then((res) => sendResponse(res));
-    return true;
+    handleStatusPoll(message.jobId)
+      .then((res) => {
+        try {
+          sendResponse(res);
+        } catch (e) {
+          console.error("[Background] Failed to send status response:", e);
+        }
+      })
+      .catch((err) => {
+        console.error("[Background] handleStatusPoll error:", err);
+        try {
+          sendResponse({ jobId: message.jobId, status: "error", error: String(err), last_updated: new Date().toISOString() });
+        } catch (e) {
+          console.error("[Background] Failed to send error response:", e);
+        }
+      });
+    return true; // Keep channel open for async response
   }
 
+  // Unhandled message type
   return false;
 });
 
