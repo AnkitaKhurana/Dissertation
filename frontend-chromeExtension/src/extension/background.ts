@@ -101,8 +101,15 @@ async function pollJob(jobId: string, apiHost?: string) {
         last_updated: status.last_updated,
         error: status.error,
       };
-      chrome.runtime.sendMessage({ type: "JOB_STATUS_UPDATE", ...payload }).catch((err) => {
-        console.log("[Background] Could not send status update (content script not active)");
+      // Try to send update to all tabs (in case content script is on a different tab)
+      chrome.tabs.query({}, (tabs) => {
+        tabs.forEach((tab) => {
+          if (tab.id) {
+            chrome.tabs.sendMessage(tab.id, { type: "JOB_STATUS_UPDATE", ...payload }).catch(() => {
+              // Silently ignore - content script may not be active on this tab
+            });
+          }
+        });
       });
       if (["completed", "failed", "cancelled"].includes(status.status)) {
         console.log("[Background] Job poll completed with status:", status.status);

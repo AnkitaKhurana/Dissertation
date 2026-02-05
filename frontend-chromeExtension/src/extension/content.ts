@@ -214,6 +214,8 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
   if (message.type === "JOB_STATUS_UPDATE") {
     const shadowHost = document.getElementById(ANALYZE_BUTTON_ID);
     const statusNode = shadowHost?.shadowRoot?.querySelector(".status");
+    const buttonNode = shadowHost?.shadowRoot?.querySelector("button");
+    
     if (statusNode) {
       const progress = (message.progress || 0) * 100;
       statusNode.textContent = `${message.status} (${progress.toFixed(0)}%)`;
@@ -223,10 +225,18 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
         "status";
     }
 
+    // Reset button when job completes or fails
+    if (buttonNode && ["completed", "failed", "cancelled"].includes(message.status)) {
+      buttonNode.textContent = "Analyze PR";
+      buttonNode.disabled = false;
+    }
+
     if (message.status === "completed" && message.results_so_far) {
       renderInlineFindings(message.results_so_far as any[]);
     }
+    return false; // Don't keep channel open
   }
+  return false; // Always return false for unhandled messages
 });
 
 // Watch for page changes
@@ -257,45 +267,52 @@ function ensureInlineStyles() {
   const style = document.createElement("style");
   style.id = INLINE_STYLE_ID;
   style.textContent = `
+    .${INLINE_FINDING_CLASS} {
+      background: rgba(15, 23, 42, 0.95) !important;
+      border-left: 4px solid #f97316 !important;
+    }
     .${INLINE_FINDING_CLASS} td {
-      background: rgba(15, 23, 42, 0.85);
-      color: #e2e8f0;
-      border-left: 4px solid #f97316;
-      padding: 8px 12px;
-      font-size: 12px;
+      background: rgba(15, 23, 42, 0.95) !important;
+      color: #e2e8f0 !important;
+      border-left: 4px solid #f97316 !important;
+      padding: 8px 12px !important;
+      font-size: 12px !important;
+      display: table-cell !important;
     }
     .${INLINE_FINDING_CLASS} .meta {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      margin-bottom: 6px;
-      font-weight: 600;
+      display: flex !important;
+      gap: 8px !important;
+      align-items: center !important;
+      margin-bottom: 6px !important;
+      font-weight: 600 !important;
     }
     .${INLINE_FINDING_CLASS} .badge {
-      padding: 2px 6px;
-      border-radius: 6px;
-      font-size: 11px;
-      text-transform: uppercase;
-      font-weight: 700;
-      background: rgba(34,197,94,0.2);
-      color: #22c55e;
+      padding: 2px 6px !important;
+      border-radius: 6px !important;
+      font-size: 11px !important;
+      text-transform: uppercase !important;
+      font-weight: 700 !important;
+      background: rgba(34,197,94,0.2) !important;
+      color: #22c55e !important;
+      display: inline-block !important;
     }
-    .${INLINE_FINDING_CLASS} .badge.severity-high { background: rgba(239,68,68,0.2); color: #ef4444; }
-    .${INLINE_FINDING_CLASS} .badge.severity-medium { background: rgba(249,115,22,0.2); color: #f97316; }
-    .${INLINE_FINDING_CLASS} .badge.severity-low { background: rgba(14,165,233,0.2); color: #0ea5e9; }
-    .${INLINE_FINDING_CLASS} .badge.severity-info { background: rgba(148,163,184,0.2); color: #94a3b8; }
+    .${INLINE_FINDING_CLASS} .badge.severity-high { background: rgba(239,68,68,0.2) !important; color: #ef4444 !important; }
+    .${INLINE_FINDING_CLASS} .badge.severity-medium { background: rgba(249,115,22,0.2) !important; color: #f97316 !important; }
+    .${INLINE_FINDING_CLASS} .badge.severity-low { background: rgba(14,165,233,0.2) !important; color: #0ea5e9 !important; }
+    .${INLINE_FINDING_CLASS} .badge.severity-info { background: rgba(148,163,184,0.2) !important; color: #94a3b8 !important; }
     .${INLINE_FINDING_CLASS} pre {
-      white-space: pre-wrap;
-      background: rgba(2,6,23,0.6);
-      padding: 8px;
-      border-radius: 6px;
-      margin-top: 6px;
+      white-space: pre-wrap !important;
+      background: rgba(2,6,23,0.6) !important;
+      padding: 8px !important;
+      border-radius: 6px !important;
+      margin-top: 6px !important;
+      color: #e2e8f0 !important;
     }
     .${INLINE_BADGE_CLASS} {
-      margin-left: 6px;
-      font-size: 11px;
-      color: #22c55e;
-      font-weight: 700;
+      margin-left: 6px !important;
+      font-size: 11px !important;
+      color: #22c55e !important;
+      font-weight: 700 !important;
     }
   `;
   document.head.appendChild(style);
@@ -307,37 +324,145 @@ function clearInlineFindings() {
 }
 
 async function renderInlineFindings(findings: any[]) {
-  const showSuggestions = await loadPreference("showSuggestions");
+  const showSuggestions = (await loadPreference("showSuggestions")) ?? true; // Default to true
   if (!showSuggestions) return;
 
-  if (!Array.isArray(findings) || findings.length === 0) return;
+  if (!Array.isArray(findings) || findings.length === 0) {
+    console.log("[Content] No findings to render");
+    return;
+  }
 
+  console.log("[Content] Rendering inline findings:", findings.length);
+  
   ensureInlineStyles();
   clearInlineFindings();
 
-  const fileContainers = Array.from(document.querySelectorAll("div.js-file, div.file")) as HTMLElement[];
+  // Find file headers first (these contain the file path)
+  const fileHeaders = Array.from(
+    document.querySelectorAll(
+      "button[aria-label*='Show'], div[class*='Header'], [class*='file-header'], button[title*='.']"
+    )
+  ) as HTMLElement[];
+  
+  console.log("[Content] Found potential file headers:", fileHeaders.length);
+  fileHeaders.forEach(h => {
+    console.log("[Content] Header - aria-label:", h.getAttribute("aria-label"), "title:", h.getAttribute("title"), "text:", h.textContent?.substring(0, 50));
+  });
+  
+  // Extract file paths from headers/labels
+  const filePathsFromDOM = new Map<string, HTMLElement>();
+  for (const header of fileHeaders) {
+    const ariaLabel = header.getAttribute("aria-label") || "";
+    const title = header.getAttribute("title") || "";
+    let text = header.textContent || "";
+    
+    // Clean up text - remove all the menu options and extra whitespace
+    text = text
+      .replace(/Collapse file/g, "")
+      .replace(/Expand file/g, "")
+      .replace(/Copy file name/g, "")
+      .replace(/to clipboard/g, "")
+      .replace(/Lines changed:/g, "")
+      .replace(/additions &/g, "")
+      .replace(/deletions/g, "")
+      .replace(/More options/g, "")
+      .replace(/Viewed/g, "")
+      .replace(/Comment on this file/g, "")
+      .replace(/[\u200e\u200f]/g, "") // Remove special Unicode chars
+      .trim()
+      .split("\n")[0]; // Take first line only
+    
+    // Try to extract file path from various sources
+    let filePath = "";
+    if (ariaLabel.includes("Show")) {
+      // aria-label format: "Show 1 hidden line in file filename.ext"
+      const match = ariaLabel.match(/in file (.+)/);
+      if (match) filePath = match[1];
+    } else if (title && title.includes(".")) {
+      filePath = title.trim();
+    } else if (text && text.includes(".")) {
+      filePath = text.trim();
+    }
+    
+    if (filePath && filePath.length < 300) { // Sanity check - filenames shouldn't be huge
+      console.log("[Content] Extracted file path:", filePath);
+      filePathsFromDOM.set(filePath, header);
+    }
+  }
+  
+  console.log("[Content] Mapped file paths from DOM:", filePathsFromDOM.size, Array.from(filePathsFromDOM.keys()));
+  
   const byFile = new Map<string, any[]>();
 
   for (const finding of findings) {
     const filePath = String(finding.file_path || finding.filePath || "").replace(/^\//, "");
-    if (!filePath) continue;
+    if (!filePath || filePath === "PR_SUMMARY.txt") continue; // Skip summary entries
     const list = byFile.get(filePath) || [];
     list.push(finding);
     byFile.set(filePath, list);
   }
+  console.log("[Content] Findings grouped by file:", byFile.size, Array.from(byFile.keys()).slice(0, 5));
 
-  for (const fileEl of fileContainers) {
-    const filePath = fileEl.getAttribute("data-path") || fileEl.getAttribute("data-file-path") || "";
-    const list = byFile.get(filePath);
-    if (!list || list.length === 0) continue;
+  // Try to render findings
+  let renderedCount = 0;
+  for (const [filePath, findingsList] of byFile.entries()) {
+    console.log(`[Content] Looking for DOM match for file: "${filePath}"`);
+    let fileHeader = filePathsFromDOM.get(filePath);
+    
+    if (!fileHeader) {
+      console.log("[Content] No exact match, trying fuzzy match...");
+      // Try fuzzy matching - file might be at different path
+      for (const [domPath, header] of filePathsFromDOM.entries()) {
+        if (domPath.includes(filePath) || filePath.includes(domPath)) {
+          console.log("[Content] Fuzzy matched:", filePath, "←→", domPath);
+          fileHeader = header;
+          break;
+        }
+      }
+    }
+    
+    if (!fileHeader) {
+      console.log("[Content] No DOM match for file:", filePath);
+      continue;
+    }
 
-    for (const finding of list) {
+    // Find the file container (parent div) that contains this header
+    let fileContainer = fileHeader;
+    while (fileContainer && !fileContainer.querySelector("table")) {
+      fileContainer = fileContainer.parentElement;
+      if (!fileContainer || fileContainer === document.body) {
+        fileContainer = null;
+        break;
+      }
+    }
+
+    if (!fileContainer) {
+      console.log("[Content] No file container/table found for:", filePath);
+      continue;
+    }
+
+    const table = fileContainer.querySelector("table");
+    if (!table) {
+      console.log("[Content] Still no table in container for:", filePath);
+      continue;
+    }
+
+    console.log(`[Content] Found table for ${filePath}, rendering ${findingsList.length} findings`);
+
+    for (const finding of findingsList) {
       const lineNumber = Number(finding.line_number || finding.line || 0);
-      if (!lineNumber) continue;
+      if (!lineNumber) {
+        console.log("[Content] Skipping finding with line_number=0 or undefined");
+        continue;
+      }
 
-      const lineCell = fileEl.querySelector(`td[data-line-number='${lineNumber}']`) as HTMLElement | null;
+      // Find line in table
+      const lineCell = table.querySelector(`td[data-line-number='${lineNumber}']`) as HTMLElement | null;
       const lineRow = lineCell?.closest("tr");
-      if (!lineRow) continue;
+      if (!lineRow) {
+        console.log(`[Content] No row found for line ${lineNumber} in ${filePath}`);
+        continue;
+      }
 
       const colspan = lineRow.querySelectorAll("td").length || 4;
       const row = document.createElement("tr");
@@ -380,7 +505,12 @@ async function renderInlineFindings(findings: any[]) {
 
       row.appendChild(td);
       lineRow.after(row);
+      renderedCount++;
+      
+      // Verify the row was actually inserted
+      const verifyRow = lineRow.nextElementSibling;
+      console.log(`[Content] ✓ Rendered finding at line ${lineNumber}, row visible: ${!!verifyRow && verifyRow.className.includes(INLINE_FINDING_CLASS)}`);
     }
   }
+  console.log("[Content] Total findings rendered:", renderedCount);
 }
-
