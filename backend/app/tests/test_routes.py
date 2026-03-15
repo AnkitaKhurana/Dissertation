@@ -102,4 +102,3 @@ async def test_auth_routes_stubbed(test_client):
     logout = await client.post("/api/v1/auth/logout")
     assert logout.status_code == status.HTTP_200_OK
     assert logout.json()["message"] == "Logged out successfully"
-*** End Patch
