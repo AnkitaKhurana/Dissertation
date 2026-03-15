@@ -54,6 +54,40 @@ class _CollectionStub:
         self.job.update(set_values)
 
 
+class _UsersCollectionStub:
+    def __init__(self) -> None:
+        self._docs: List[Dict[str, Any]] = []
+
+    async def insert_one(self, doc: Dict[str, Any]) -> None:
+        self._docs.append(dict(doc))
+
+    async def find_one(self, query: Dict[str, Any]) -> Dict[str, Any] | None:
+        for doc in self._docs:
+            if all(doc.get(k) == v for k, v in query.items()):
+                return dict(doc)
+        return None
+
+    async def update_one(self, query: Dict[str, Any], update: Dict[str, Any], upsert: bool = False) -> None:
+        for index, doc in enumerate(self._docs):
+            if all(doc.get(k) == v for k, v in query.items()):
+                updated = dict(doc)
+                updated.update(update.get("$set", {}))
+                self._docs[index] = updated
+                return
+
+        if upsert:
+            new_doc: Dict[str, Any] = dict(query)
+            new_doc.update(update.get("$setOnInsert", {}))
+            new_doc.update(update.get("$set", {}))
+            self._docs.append(new_doc)
+
+    async def delete_one(self, query: Dict[str, Any]) -> None:
+        for index, doc in enumerate(self._docs):
+            if all(doc.get(k) == v for k, v in query.items()):
+                self._docs.pop(index)
+                return
+
+
 class StubJobStore:
     def __init__(self) -> None:
         now = datetime.utcnow()
@@ -67,6 +101,7 @@ class StubJobStore:
             "error": None,
         }
         self.collection = _CollectionStub(self.job)
+        self.db = {"users": _UsersCollectionStub()}
 
     async def create_job(
         self,
