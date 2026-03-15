@@ -102,6 +102,7 @@ class StubJobStore:
         }
         self.collection = _CollectionStub(self.job)
         self.db = {"users": _UsersCollectionStub()}
+        self.agent_states: List[Dict[str, Any]] = []
 
     async def create_job(
         self,
@@ -150,3 +151,6 @@ class StubJobStore:
 
     async def health_check(self) -> None:
         return None
+
+    async def persist_agent_state(self, job_id: str, state: Dict[str, Any]) -> None:
+        self.agent_states.append({"job_id": job_id, **state})

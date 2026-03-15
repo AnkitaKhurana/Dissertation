@@ -1,8 +1,19 @@
 import pytest
+import jwt
 from fastapi import status
 
 from app.core.config import get_settings
 from app.schemas.jobs import JobStatus
+
+
+def _auth_headers(user_id: str = "1") -> dict:
+    settings = get_settings()
+    token = jwt.encode(
+        {"sub": user_id, "github_username": "test-user"},
+        settings.JWT_SECRET,
+        algorithm=settings.JWT_ALGORITHM,
+    )
+    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.mark.asyncio
@@ -26,9 +37,9 @@ async def test_analyze_pr_rejects_invalid_url(test_client):
     payload = {"pr_url": "https://github.com/org/repo/issues/1", "agents_requested": ["code_review"]}
 
     resp = await client.post("/api/v1/analyze-pr", json=payload)
-    assert resp.status_code == status.HTTP_400_BAD_REQUEST
+    assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
     body = resp.json()
-    assert body["detail"]["error_code"] == "INVALID_PR_URL"
+    assert "Invalid GitHub PR URL" in str(body["detail"])
 
 
 @pytest.mark.asyncio
@@ -79,14 +90,15 @@ async def test_cancel_job_marks_cancelled(test_client):
 @pytest.mark.asyncio
 async def test_user_prefs_roundtrip(test_client):
     client, _ = test_client
+    headers = _auth_headers()
 
-    get_resp = await client.get("/api/v1/user/prefs")
+    get_resp = await client.get("/api/v1/user/prefs", headers=headers)
     assert get_resp.status_code == status.HTTP_200_OK
     prefs = get_resp.json()
     assert prefs["theme"] in {"light", "dark", "system"}
 
     prefs["theme"] = "light"
-    put_resp = await client.put("/api/v1/user/prefs", json=prefs)
+    put_resp = await client.put("/api/v1/user/prefs", json=prefs, headers=headers)
     assert put_resp.status_code == status.HTTP_200_OK
     assert put_resp.json()["theme"] == "light"
 

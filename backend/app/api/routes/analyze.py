@@ -14,6 +14,7 @@ Exported:
 """
 
 import re
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
@@ -236,5 +237,5 @@ async def analyze_pr(
             job_id=job_id,
             status=JobStatus.PENDING,
             status_url=f"/api/{settings.API_VERSION}/jobs/{job_id}",
-            created_at=pr_metadata.get("created_at"),
+            created_at=pr_metadata.get("created_at") or datetime.utcnow(),
         )
