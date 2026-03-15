@@ -36,5 +36,6 @@ async def test_run_analysis_updates_progress(sample_diff: str):
     job = await job_store.get_job(job_id)
     assert job["status"] == JobStatus.COMPLETED
     assert job["progress"] == 1.0
-    assert len(job["results"]) == 4
+    # The orchestrator deduplicates identical findings across agents.
+    assert len(job["results"]) == 1
     assert job_store.collection.update_calls >= 1
