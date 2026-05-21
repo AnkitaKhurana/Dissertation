@@ -1,4 +1,6 @@
-const DEFAULT_API_BASE = "https://api.example.com";
+import { CONFIG } from "../constants/config";
+
+const DEFAULT_API_BASE = CONFIG.API_BASE_URL;
 
 import { authService } from "./auth";
 import {

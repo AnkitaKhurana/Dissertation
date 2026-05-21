@@ -29,6 +29,7 @@ import { JobListResponse, JobSummary } from "./types/backend";
 import { authService } from "./services/auth";
 import { JobFindingsPanel } from "./components/JobFindingsPanel";
 import { DEFAULT_JS_TS_ENABLED_AGENTS, normalizeEnabledAgents } from "./utils/agents";
+import { CONFIG } from "./constants/config";
 
 type JobRow = JobSummary & {
   prUrl?: string;
@@ -55,7 +56,7 @@ function StatusChip({ status }: { status: string }) {
 }
 
 export function App() {
-  const [backendUrl, setBackendUrl] = useState<string | null>(null);
+  const [backendUrl, setBackendUrl] = useState<string>(CONFIG.API_BASE_URL);
   const [prUrl, setPrUrl] = useState("");
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
@@ -69,14 +70,14 @@ export function App() {
   const [jobsPageCount, setJobsPageCount] = useState(1);
 
   useEffect(() => {
-    loadPreference("backendUrl").then((v) => setBackendUrl((v as string) || null));
+    loadPreference("backendUrl").then((v) => setBackendUrl((v as string) || CONFIG.API_BASE_URL));
     loadPreference("theme").then((v) => { if (v === "light" || v === "dark") setMode(v); });
     refreshJobs();
     (async () => {
       try {
-        const isAuth = await authService.isAuthenticated(backendUrl || "");
+        const isAuth = await authService.isAuthenticated(backendUrl || CONFIG.API_BASE_URL);
         if (isAuth) {
-          const u = await authService.getCurrentUser(backendUrl || "");
+          const u = await authService.getCurrentUser(backendUrl || CONFIG.API_BASE_URL);
           setUser(u);
         }
       } catch {
@@ -122,7 +123,7 @@ export function App() {
   async function refreshJobs() {
     setLoadingJobs(true);
     try {
-      const base = backendUrl || undefined;
+      const base = backendUrl || CONFIG.API_BASE_URL;
       const data: JobListResponse = await apiClient.listJobs(base, jobsPage, 5);
       setJobs((data.data || []) as JobRow[]);
       // Calculate page count from total if available
@@ -142,7 +143,7 @@ export function App() {
   async function loadJobDetails(jobId: string) {
     setLoadingDetails(true);
     try {
-      const base = backendUrl || undefined;
+      const base = backendUrl || CONFIG.API_BASE_URL;
       const detail = await apiClient.getJobStatus(jobId, base);
       setJobDetails(detail);
     } catch (err) {
@@ -164,7 +165,7 @@ export function App() {
 
   async function cancelJob(jobId: string) {
     try {
-      const base = backendUrl || undefined;
+      const base = backendUrl || CONFIG.API_BASE_URL;
       await apiClient.cancelJob(jobId, base);
       await refreshJobs();
     } catch (err) {
@@ -201,7 +202,7 @@ export function App() {
                   <Avatar sx={{ width: 32, height: 32 }}>{(user?.gh_login || "U")[0]}</Avatar>
                 </Tooltip>
               ) : (
-                <Button size="small" startIcon={<GitHub />} onClick={() => authService.initiateGitHubLogin(backendUrl || "")}>Sign in</Button>
+                <Button size="small" startIcon={<GitHub />} onClick={() => authService.initiateGitHubLogin(backendUrl || CONFIG.API_BASE_URL)}>Sign in</Button>
               )}
             </Stack>
           </Stack>
