@@ -8,6 +8,7 @@ const INLINE_FINDING_CLASS = "pr-sentinel-inline-finding";
 const INLINE_BADGE_CLASS = "pr-sentinel-inline-badge";
 const STATUS_POLL_INTERVAL_MS = 5000; // Poll faster so the button recovers promptly
 const PROGRESS_TICK_MS = 1000;
+const ANALYZE_RESPONSE_TIMEOUT_MS = 25000;
 
 let activeJobId: string | null = null;
 let statusPollTimer: number | null = null;
@@ -41,6 +42,24 @@ function sendMessage<T = unknown>(message: any): Promise<T> {
       }
     });
   });
+}
+
+async function sendMessageWithTimeout<T = unknown>(message: any, timeoutMs = ANALYZE_RESPONSE_TIMEOUT_MS): Promise<T> {
+  let timeoutHandle: number | null = null;
+  try {
+    return await Promise.race([
+      sendMessage<T>(message),
+      new Promise<T>((_, reject) => {
+        timeoutHandle = window.setTimeout(() => {
+          reject(new Error(`Timed out waiting for background response after ${timeoutMs}ms`));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle !== null) {
+      window.clearTimeout(timeoutHandle);
+    }
+  }
 }
 
 function stopStatusPolling() {
@@ -304,7 +323,8 @@ export function attachShadowUi(): void {
 
       console.log("[Content] Starting analysis with agents:", agents);
 
-      const response = await sendMessage({
+      console.log("[Content] Sending ANALYZE_PR message to background");
+      const response = await sendMessageWithTimeout({
         type: "ANALYZE_PR",
         prUrl,
         agents,
@@ -339,6 +359,7 @@ export function attachShadowUi(): void {
       status.textContent = "Error";
       status.className = "status error";
       btn.disabled = false;
+      btn.textContent = "Analyze PR";
     }
   });
 
