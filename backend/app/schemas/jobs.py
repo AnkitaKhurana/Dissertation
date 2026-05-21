@@ -19,6 +19,7 @@ from typing import List, Optional
 from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.findings import Finding
+from app.services.agent_registry import GENERIC_AGENT_ROLES, get_valid_agents
 from app.utils.validators import is_valid_pr_url
 
 class JobStatus(str, Enum):
@@ -47,7 +48,7 @@ class JobCreate(BaseModel):
     )
 
     agents_requested: List[str] = Field(
-        default=["code_review", "security", "tests", "maintainability"],
+        default=list(GENERIC_AGENT_ROLES),
         description="Agents to run for this analysis",
         examples=[["security", "code_review"], ["code_review"]],
     )
@@ -78,13 +79,13 @@ class JobCreate(BaseModel):
     @classmethod
     def validate_agents(cls, v: List[str]) -> List[str]:
         """Validate requested agents."""
-        valid_agents = {"code_review", "security", "tests", "maintainability"}
+        valid_agents = set(get_valid_agents())
         invalid = set(v) - valid_agents
         if invalid:
             raise ValueError(f"Invalid agents: {invalid}. Valid: {valid_agents}")
         if not v:
             raise ValueError("At least one agent must be requested")
-        return list(set(v))  # Remove duplicates
+        return list(dict.fromkeys(v))
 
     class Config:
         json_schema_extra = {

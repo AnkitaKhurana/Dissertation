@@ -13,6 +13,8 @@ from typing import List, Literal
 
 from pydantic import BaseModel, Field
 
+from app.services.agent_registry import GENERIC_AGENT_ROLES
+
 
 class UserPreferences(BaseModel):
     """
@@ -37,7 +39,7 @@ class UserPreferences(BaseModel):
     )
 
     agents_enabled: List[str] = Field(
-        default=["code_review", "security", "tests", "maintainability"],
+        default=list(GENERIC_AGENT_ROLES),
         description="Enabled agents for PR analysis",
     )
 

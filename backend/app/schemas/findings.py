@@ -15,6 +15,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.services.agent_registry import get_valid_agents
+
 # Severity levels (critical → high → medium → low → info)
 SeverityLevel = Literal["critical", "high", "medium", "low", "info"]
 
@@ -122,7 +124,7 @@ class Finding(BaseModel):
         Raises:
             ValueError: If agent name is invalid
         """
-        valid_agents = ["code_review", "security", "tests", "maintainability"]
+        valid_agents = list(get_valid_agents())
         if v not in valid_agents:
             raise ValueError(f"Agent must be one of: {valid_agents}")
         return v

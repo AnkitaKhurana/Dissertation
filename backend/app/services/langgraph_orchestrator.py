@@ -21,6 +21,7 @@ from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.schemas.findings import Finding
 from app.schemas.jobs import JobStatus
+from app.services.agent_registry import detect_profile_from_diff, get_profile_agents, get_prompt_filename
 from app.services.github_adapter import GitHubAdapter, get_github_adapter
 from app.services.job_store import JobStore, get_job_store
 from app.services.llm_adapter import LLMAdapter, get_llm_adapter
@@ -54,8 +55,7 @@ class LangGraphOrchestrator:
     async def run_analysis(self, job_id: str, pr_url: str) -> None:
         """Run all agents sequentially with incremental, deduplicated results."""
         import asyncio
-        
-        agents = ["code_review", "security", "tests", "maintainability"]
+
         try:
             diff_text = await self.github.fetch_pr_diff(pr_url)
         except Exception as exc:  # pragma: no cover - network stub
@@ -63,11 +63,14 @@ class LangGraphOrchestrator:
             await self.jobs.update_job_status(job_id, JobStatus.FAILED, error=str(exc))
             return
 
+        profile = detect_profile_from_diff(diff_text)
+        agents = list(get_profile_agents(profile))
+
         all_findings = []  # Track all findings to deduplicate
         seen_keys = set()  # Track unique (file_path, line_number, message) combinations
         
         for idx, agent in enumerate(agents, start=1):
-            prompt = self._build_prompt(agent, pr_url, diff_text)
+            prompt = self._build_prompt(agent, pr_url, diff_text, profile)
             await self._persist_agent_state(job_id, pr_url, agent, status="running")
             
             try:
@@ -125,15 +128,16 @@ class LangGraphOrchestrator:
 
         await self.jobs.update_job_status(job_id, JobStatus.COMPLETED)
 
-    def _build_prompt(self, agent: str, pr_url: str, diff_text: str) -> str:
+    def _build_prompt(self, agent: str, pr_url: str, diff_text: str, profile: str = "generic") -> str:
         system = self._load_prompt("system.yaml")
         policy = self._load_prompt("policy.yaml")
-        agent_prompt = self._load_prompt("reviewer.yaml")
+        agent_prompt = self._load_prompt(get_prompt_filename(agent))
         return "\n".join(
             [
                 system,
                 policy,
                 f"Agent: {agent}",
+                f"Profile: {profile}",
                 f"PR: {pr_url}",
                 agent_prompt,
                 "Diff:",
