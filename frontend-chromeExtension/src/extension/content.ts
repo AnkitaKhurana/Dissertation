@@ -6,7 +6,7 @@ const ANALYZE_BUTTON_ID = "pr-sentinel-analyze-button";
 const INLINE_STYLE_ID = "pr-sentinel-inline-style";
 const INLINE_FINDING_CLASS = "pr-sentinel-inline-finding";
 const INLINE_BADGE_CLASS = "pr-sentinel-inline-badge";
-const STATUS_POLL_INTERVAL_MS = 12000; // 12 seconds to reduce server load
+const STATUS_POLL_INTERVAL_MS = 5000; // Poll faster so the button recovers promptly
 const PROGRESS_TICK_MS = 1000;
 
 let activeJobId: string | null = null;
@@ -85,10 +85,12 @@ async function startStatusPolling(jobId: string) {
     }
 
     try {
+      console.log("[Content] Polling job status:", activeJobId);
       const response = await sendMessage<any>({ type: "GET_STATUS", jobId: activeJobId });
       if (response?.error) {
         console.warn("[Content] Status poll error:", response.error);
       } else if (response?.status) {
+        console.log("[Content] Status poll response:", response.status, response.progress);
         applyJobStatus(response);
       }
 
@@ -103,7 +105,7 @@ async function startStatusPolling(jobId: string) {
     statusPollTimer = window.setTimeout(pollOnce, STATUS_POLL_INTERVAL_MS);
   };
 
-  statusPollTimer = window.setTimeout(pollOnce, STATUS_POLL_INTERVAL_MS);
+  void pollOnce();
 }
 
 async function resumeStatusPollingFromStorage() {

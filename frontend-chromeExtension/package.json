@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "build:extension": "vite build --mode production --sourcemap=false",
+    "build": "vite build && npm run build:content",
+    "build:extension": "vite build --mode production --sourcemap=false && npm run build:content",
+    "build:content": "esbuild src/extension/content.ts --bundle --outfile=dist/content.js --format=iife --platform=browser --target=es2019 --minify",
     "preview:extension": "vite preview",
     "zip:extension": "npm run build:extension && node ./scripts/zip-extension.js",
     "size:extension": "node ./scripts/check-size.js",
@@ -46,6 +47,7 @@
     "ts-jest": "^29.1.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3",
-    "vite": "^5.0.10"
+    "vite": "^5.0.10",
+    "esbuild": "^0.18.18"
   }
 }

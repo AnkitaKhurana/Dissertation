@@ -19,12 +19,10 @@ export default defineConfig({
         offscreen: resolve(__dirname, "src/extension/offscreen.ts"),
       },
       output: {
-        // Use IIFE so content script bundles run as classic scripts in pages
-        // (some Chromium environments don't treat content scripts as modules).
-        format: "iife",
-        // When producing multiple entry points, disable inlineDynamicImports
-        // which is incompatible with multiple inputs for IIFE bundles.
-        inlineDynamicImports: false,
+        // Keep ES modules for Vite/Rollup multi-entry build; content script
+        // will be bundled separately to an IIFE via esbuild to avoid
+        // runtime `import` errors in page context.
+        format: "es",
         entryFileNames: (chunkInfo) => {
           if (chunkInfo.name === "background") return "background.js";
           if (chunkInfo.name === "content") return "content.js";
