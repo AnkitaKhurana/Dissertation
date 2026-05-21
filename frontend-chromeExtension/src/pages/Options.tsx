@@ -110,6 +110,13 @@ function OptionsApp() {
   useEffect(() => {
     async function checkAuth() {
       try {
+        const hasToken = await authService.hasValidToken();
+        if (!hasToken) {
+          setIsAuthenticated(false);
+          setUserEmail("");
+          return;
+        }
+
         // Check for OAuth callback token in URL
         const params = new URLSearchParams(window.location.search);
         const callbackToken = params.get("token");

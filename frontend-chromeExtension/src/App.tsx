@@ -75,6 +75,12 @@ export function App() {
     refreshJobs();
     (async () => {
       try {
+        const hasToken = await authService.hasValidToken();
+        if (!hasToken) {
+          setUser(null);
+          return;
+        }
+
         const isAuth = await authService.isAuthenticated(backendUrl || CONFIG.API_BASE_URL);
         if (isAuth) {
           const u = await authService.getCurrentUser(backendUrl || CONFIG.API_BASE_URL);
