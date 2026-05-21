@@ -46,7 +46,13 @@ async def get_user_prefs():
     return UserPreferences(
         theme="dark",
         llm_priority=["local", "api_key", "hosted"],
-        agents_enabled=["code_review", "security", "tests", "maintainability"],
+        agents_enabled=[
+            "static_analyzer",
+            "semantic_analyzer",
+            "security_checker",
+            "testability_agent",
+            "maintainability_agent",
+        ],
         severity_display="all",
         job_retention_days=1,
     )

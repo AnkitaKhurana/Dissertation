@@ -53,7 +53,13 @@ export const apiClient = {
       headers,
       body: JSON.stringify({
         pr_url: normalizedUrl,
-        agents_requested: agents || ["code_review"],
+        agents_requested: agents || [
+          "static_analyzer",
+          "semantic_analyzer",
+          "security_checker",
+          "testability_agent",
+          "maintainability_agent",
+        ],
         sync: false, // Use async for large PRs
       }),
       credentials: "include",

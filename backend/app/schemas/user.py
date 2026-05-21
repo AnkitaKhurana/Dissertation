@@ -13,7 +13,7 @@ from typing import List, Literal
 
 from pydantic import BaseModel, Field
 
-from app.services.agent_registry import GENERIC_AGENT_ROLES
+from app.services.agent_registry import JS_TS_AGENT_ROLES
 
 
 class UserPreferences(BaseModel):
@@ -39,7 +39,7 @@ class UserPreferences(BaseModel):
     )
 
     agents_enabled: List[str] = Field(
-        default=list(GENERIC_AGENT_ROLES),
+        default=list(JS_TS_AGENT_ROLES),
         description="Enabled agents for PR analysis",
     )
 
@@ -60,7 +60,7 @@ class UserPreferences(BaseModel):
             "example": {
                 "theme": "dark",
                 "llm_priority": ["local", "api_key", "hosted"],
-                "agents_enabled": ["code_review", "security"],
+                "agents_enabled": ["static_analyzer", "security_checker"],
                 "severity_display": "all",
                 "job_retention_days": 5,
             }

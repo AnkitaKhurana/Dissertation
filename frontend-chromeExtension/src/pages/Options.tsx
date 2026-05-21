@@ -30,6 +30,7 @@ import { authService } from "../services/auth";
 import { loadPreference, loadSessionValue, savePreference, saveSessionValue } from "../services/storage";
 import { getTheme } from "../theme";
 import { CONFIG } from "../constants/config";
+import { DEFAULT_JS_TS_ENABLED_AGENTS, EnabledAgents, normalizeEnabledAgents } from "../utils/agents";
 
 type ThemeMode = "light" | "dark";
 type LLMProvider = "local" | "api_key" | "hosted";
@@ -48,12 +49,7 @@ function OptionsApp() {
   const [persistApiKey, setPersistApiKey] = useState(false);
 
   // Agent Configuration
-  const [enabledAgents, setEnabledAgents] = useState({
-    code_review: true,
-    security: true,
-    tests: true,
-    maintainability: true,
-  });
+  const [enabledAgents, setEnabledAgents] = useState<EnabledAgents>(DEFAULT_JS_TS_ENABLED_AGENTS);
 
   // UI Preferences
   const [mode, setMode] = useState<ThemeMode>("dark");
@@ -79,7 +75,7 @@ function OptionsApp() {
       const savedPersist = await loadPreference<boolean>("persistApiKey");
 
       // Agents
-      const savedAgents = await loadPreference<typeof enabledAgents>("enabledAgents");
+      const savedAgents = normalizeEnabledAgents(await loadPreference<typeof enabledAgents>("enabledAgents"));
 
       // UI
       const savedTheme = await loadPreference<ThemeMode>("theme");
@@ -357,45 +353,56 @@ function OptionsApp() {
 
                 <FormGroup>
                   <FormControlLabel
-                    control={<Checkbox checked={enabledAgents.code_review} onChange={() => toggleAgent("code_review")} />}
+                    control={<Checkbox checked={enabledAgents.static_analyzer} onChange={() => toggleAgent("static_analyzer")} />}
                     label={
                       <Stack>
-                        <Typography fontWeight={600}>Code Review</Typography>
+                        <Typography fontWeight={600}>Static Analyzer</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          General code quality, best practices, and idioms
+                          Syntax, type, build, and style issues for JS/TS
                         </Typography>
                       </Stack>
                     }
                   />
                   <FormControlLabel
-                    control={<Checkbox checked={enabledAgents.security} onChange={() => toggleAgent("security")} />}
+                    control={<Checkbox checked={enabledAgents.semantic_analyzer} onChange={() => toggleAgent("semantic_analyzer")} />}
                     label={
                       <Stack>
-                        <Typography fontWeight={600}>Security</Typography>
+                        <Typography fontWeight={600}>Semantic Analyzer</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Security vulnerabilities, injection risks, and attack vectors
+                          Cross-file logic, API misuse, and async flow issues
                         </Typography>
                       </Stack>
                     }
                   />
                   <FormControlLabel
-                    control={<Checkbox checked={enabledAgents.tests} onChange={() => toggleAgent("tests")} />}
+                    control={<Checkbox checked={enabledAgents.security_checker} onChange={() => toggleAgent("security_checker")} />}
                     label={
                       <Stack>
-                        <Typography fontWeight={600}>Tests</Typography>
+                        <Typography fontWeight={600}>Security Checker</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Test coverage, quality, and missing test cases
+                          Unsafe patterns, input validation gaps, and dependency risk
                         </Typography>
                       </Stack>
                     }
                   />
                   <FormControlLabel
-                    control={<Checkbox checked={enabledAgents.maintainability} onChange={() => toggleAgent("maintainability")} />}
+                    control={<Checkbox checked={enabledAgents.testability_agent} onChange={() => toggleAgent("testability_agent")} />}
                     label={
                       <Stack>
-                        <Typography fontWeight={600}>Maintainability</Typography>
+                        <Typography fontWeight={600}>Testability Agent</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Code complexity, readability, and documentation
+                          Coverage gaps, weak assertions, and untested error paths
+                        </Typography>
+                      </Stack>
+                    }
+                  />
+                  <FormControlLabel
+                    control={<Checkbox checked={enabledAgents.maintainability_agent} onChange={() => toggleAgent("maintainability_agent")} />}
+                    label={
+                      <Stack>
+                        <Typography fontWeight={600}>Maintainability Agent</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Duplication, complexity, and hardcoded values
                         </Typography>
                       </Stack>
                     }

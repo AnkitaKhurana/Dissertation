@@ -1,4 +1,5 @@
 import type { ExtensionMessage } from "./types";
+import { DEFAULT_JS_TS_ENABLED_AGENTS, normalizeEnabledAgents } from "../utils/agents";
 // Inline constants to avoid module imports
 const ANALYZE_BUTTON_ID = "pr-sentinel-analyze-button";
 
@@ -282,12 +283,7 @@ export function attachShadowUi(): void {
       clearInlineFindings();
 
       // Get enabled agents from settings
-      const enabledAgents = (await loadPreference("enabledAgents")) || {
-        code_review: true,
-        security: true,
-        tests: true,
-        maintainability: true,
-      };
+      const enabledAgents = normalizeEnabledAgents(await loadPreference("enabledAgents")) || DEFAULT_JS_TS_ENABLED_AGENTS;
 
       const agents = Object.entries(enabledAgents)
         .filter(([_, enabled]) => enabled)

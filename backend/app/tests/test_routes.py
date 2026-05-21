@@ -19,7 +19,7 @@ def _auth_headers(user_id: str = "1") -> dict:
 @pytest.mark.asyncio
 async def test_analyze_pr_creates_job(test_client):
     client, job_store = test_client
-    payload = {"pr_url": "https://github.com/org/repo/pull/1", "agents_requested": ["code_review"]}
+    payload = {"pr_url": "https://github.com/org/repo/pull/1", "agents_requested": ["static_analyzer", "security_checker"]}
 
     resp = await client.post("/api/v1/analyze-pr", json=payload)
     assert resp.status_code == status.HTTP_201_CREATED
@@ -34,7 +34,7 @@ async def test_analyze_pr_creates_job(test_client):
 @pytest.mark.asyncio
 async def test_analyze_pr_rejects_invalid_url(test_client):
     client, _ = test_client
-    payload = {"pr_url": "https://github.com/org/repo/issues/1", "agents_requested": ["code_review"]}
+    payload = {"pr_url": "https://github.com/org/repo/issues/1", "agents_requested": ["static_analyzer"]}
 
     resp = await client.post("/api/v1/analyze-pr", json=payload)
     assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
@@ -46,7 +46,7 @@ async def test_analyze_pr_rejects_invalid_url(test_client):
 async def test_analyze_pr_rejects_large_pr(test_client, mock_github):
     client, _ = test_client
     mock_github.metadata = {"changed_files": get_settings().MAX_PR_FILES + 1}
-    payload = {"pr_url": "https://github.com/org/repo/pull/2", "agents_requested": ["code_review"]}
+    payload = {"pr_url": "https://github.com/org/repo/pull/2", "agents_requested": ["semantic_analyzer"]}
 
     resp = await client.post("/api/v1/analyze-pr", json=payload)
     assert resp.status_code == status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
@@ -60,7 +60,7 @@ async def test_get_job_status_returns_job(test_client):
     job_id = await job_store.create_job(
         user_id="u1",
         pr_url="https://github.com/org/repo/pull/3",
-        agents_requested=["code_review"],
+        agents_requested=["static_analyzer"],
         user_tier="free",
     )
 
@@ -77,7 +77,7 @@ async def test_cancel_job_marks_cancelled(test_client):
     job_id = await job_store.create_job(
         user_id="u1",
         pr_url="https://github.com/org/repo/pull/4",
-        agents_requested=["code_review"],
+        agents_requested=["static_analyzer"],
         user_tier="free",
     )
 

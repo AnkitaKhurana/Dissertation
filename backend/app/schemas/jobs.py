@@ -50,7 +50,7 @@ class JobCreate(BaseModel):
     agents_requested: List[str] = Field(
         default=list(GENERIC_AGENT_ROLES),
         description="Agents to run for this analysis",
-        examples=[["security", "code_review"], ["code_review"]],
+        examples=[["static_analyzer", "security_checker"], ["semantic_analyzer"]],
     )
 
     sync: bool = Field(
@@ -91,7 +91,7 @@ class JobCreate(BaseModel):
         json_schema_extra = {
             "example": {
                 "pr_url": "https://github.com/facebook/react/pull/12345",
-                "agents_requested": ["security", "code_review"],
+                "agents_requested": ["static_analyzer", "security_checker"],
                 "sync": False,
                 "idempotency_key": "pr-12345-20260120-001",
             }

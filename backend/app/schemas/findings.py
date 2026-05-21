@@ -30,7 +30,7 @@ class Finding(BaseModel):
         file_path: Relative path to file in PR (e.g., "src/main.py")
         line_number: Line number where issue was found (1-indexed)
         severity: Issue severity level
-        agent: Agent that generated the finding (e.g., "security", "code_review")
+        agent: Agent that generated the finding (e.g., "static_analyzer", "code_review")
         message: Human-readable description of the issue
         suggested_code: Optional code suggestion to fix the issue
         confidence: Confidence score (0.0 to 1.0)
@@ -64,7 +64,7 @@ class Finding(BaseModel):
     agent: str = Field(
         ...,
         description="Agent that generated this finding",
-        examples=["security", "code_review", "tests", "maintainability"],
+        examples=["static_analyzer", "semantic_analyzer", "security_checker", "testability_agent", "maintainability_agent"],
     )
 
     message: str = Field(

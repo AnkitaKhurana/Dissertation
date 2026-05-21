@@ -2,7 +2,7 @@
 PR Sentinel Backend — LangGraph Orchestrator Wrapper
 
 Responsibility:
-- Orchestrate multi-agent analysis (code_review, security, tests, maintainability)
+- Orchestrate multi-agent analysis for both the generic profile and the JS/TS profile
 - Manage agent state (TypedDict) and persist transitions to job_store
 - Write partial results to job_store during execution
 - TODO: Replace BackgroundTasks with queue (Celery/Azure Queue) for production

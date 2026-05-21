@@ -28,6 +28,7 @@ import { getTheme } from "./theme";
 import { JobListResponse, JobSummary } from "./types/backend";
 import { authService } from "./services/auth";
 import { JobFindingsPanel } from "./components/JobFindingsPanel";
+import { DEFAULT_JS_TS_ENABLED_AGENTS, normalizeEnabledAgents } from "./utils/agents";
 
 type JobRow = JobSummary & {
   prUrl?: string;
@@ -103,8 +104,8 @@ export function App() {
   async function createJob() {
     setCreating(true);
     try {
-      const enabledAgents = (await loadPreference("enabledAgents")) || { code_review: true, security: true, tests: true, maintainability: true };
-      const agents = Object.entries(enabledAgents as Record<string, boolean>)
+      const enabledAgents = normalizeEnabledAgents(await loadPreference("enabledAgents")) || DEFAULT_JS_TS_ENABLED_AGENTS;
+      const agents = Object.entries(enabledAgents)
         .filter(([, v]) => v)
         .map(([k]) => k);
 
