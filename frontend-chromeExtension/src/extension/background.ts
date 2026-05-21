@@ -1,8 +1,18 @@
 import { apiClient } from "../services/api";
-import { loadPreference, loadSessionValue, savePreference } from "../services/storage";
+import { loadPreference, savePreference } from "../services/storage";
 import { AnalyzeResponse, ExtensionMessage, JobStatusPayload } from "./types";
 
-const BACKOFF_MS = [1000, 2000, 5000, 10000, 15000, 20000, 30000];  // Poll for up to ~83 seconds
+// Keep polling long enough for larger repos/PRs.
+// Increased intervals to reduce server load: slower initial checks, then poll every 30s for ~20 minutes.
+const BACKOFF_MS = [
+  2000,
+  3000,
+  5000,
+  10000,
+  15000,
+  20000,
+  ...new Array(40).fill(30000),
+];
 
 chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendResponse) => {
   // Handle offline state
@@ -77,7 +87,7 @@ async function handleAnalyze(prUrl: string, agents?: string[]): Promise<AnalyzeR
       last_updated: response.created_at,
     });
     // Start polling in background (don't await, let it run async)
-    void pollJob(response.job_id, apiHost);
+    void pollJob(response.job_id, apiHost || undefined);
     return {
       jobId: response.job_id,
       status: response.status,
@@ -135,31 +145,62 @@ async function pollJob(jobId: string, apiHost?: string) {
         last_updated: status.last_updated,
         error: status.error,
       };
-      // Try to send update to all tabs (in case content script is on a different tab)
-      chrome.tabs.query({}, (tabs) => {
-        tabs.forEach((tab) => {
-          if (tab.id) {
-            chrome.tabs.sendMessage(tab.id, { type: "JOB_STATUS_UPDATE", ...payload }).catch(() => {
-              // Silently ignore - content script may not be active on this tab
-            });
-          }
-        });
-      });
+      broadcastJobUpdate(payload);
+      // Persist intermediate progress too, so popup fallback data stays fresh.
+      await persistRecentJob(payload);
+
       if (["completed", "failed", "cancelled"].includes(status.status)) {
         console.log("[Background] Job poll completed with status:", status.status);
-        await persistRecentJob(payload);
-        break;
+        return;
       }
     } catch (err) {
       console.error("[Background] Polling error:", err);
     }
   }
+
+  // Final status fetch in case completion happened right after last interval.
+  try {
+    const finalStatus = await apiClient.getJobStatus(jobId, apiHost || undefined);
+    const payload: JobStatusPayload = {
+      jobId: finalStatus.job_id,
+      status: finalStatus.status,
+      progress: finalStatus.progress,
+      results_so_far: finalStatus.results_so_far,
+      last_updated: finalStatus.last_updated,
+      error: finalStatus.error,
+    };
+    broadcastJobUpdate(payload);
+    await persistRecentJob(payload);
+  } catch (err) {
+    console.error("[Background] Final poll fetch failed:", err);
+  }
 }
 
 async function persistRecentJob(job: JobStatusPayload) {
   const existing = (await loadPreference<JobStatusPayload[]>("recentJobs")) || [];
-  const next = [job, ...existing].slice(0, 3);
+  const withoutCurrent = existing.filter((item) => item.jobId !== job.jobId);
+  const next = [job, ...withoutCurrent].slice(0, 10);
   await savePreference("recentJobs", next as any);
+}
+
+function broadcastJobUpdate(payload: JobStatusPayload) {
+  // Try to send update to all tabs (in case content script is on a different tab)
+  chrome.tabs.query({}, (tabs) => {
+    tabs.forEach((tab) => {
+      if (tab.id) {
+        try {
+          chrome.tabs.sendMessage(tab.id, { type: "JOB_STATUS_UPDATE", ...payload }, (_resp) => {
+            const lastErr = chrome.runtime && (chrome.runtime as any).lastError;
+            if (lastErr) {
+              // Ignore errors when content script isn't present for a tab.
+            }
+          });
+        } catch (sendErr) {
+          console.warn("[Background] sendMessage failed for tab", tab.id, sendErr);
+        }
+      }
+    });
+  });
 }
 
 function wait(ms: number) {

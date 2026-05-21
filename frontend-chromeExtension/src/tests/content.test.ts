@@ -8,6 +8,8 @@ const html = fs.readFileSync(fixturePath, "utf-8");
 
 describe("content script", () => {
   beforeEach(() => {
+    // Set a GitHub PR URL so the content script's URL checks pass
+    window.history.pushState({}, "", "/github.com/owner/repo/pull/123");
     document.body.innerHTML = html;
   });
 

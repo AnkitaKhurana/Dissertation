@@ -157,6 +157,7 @@ class GroqAdapter(LLMAdapter):
 
     @_retry_decorator()
     async def analyze(self, prompt: str, options: Dict[str, Any] | None = None) -> List[Finding]:
+        
         # Build system message with JSON schema instructions
         system_message = (
             "You are a code review assistant. Analyze the provided code and return findings as a JSON array.\n\n"
@@ -178,7 +179,7 @@ class GroqAdapter(LLMAdapter):
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": prompt}
             ],
-            "max_tokens": self.max_tokens,
+            "max_tokens": max_tokens,
             "temperature": self.temperature,
             "top_p": self.top_p,
         }

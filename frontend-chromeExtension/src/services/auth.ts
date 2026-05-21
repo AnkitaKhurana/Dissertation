@@ -10,7 +10,7 @@
  * - AuthService: Main auth service class
  */
 
-import { apiClient } from "./api";
+
 import { loadSessionValue, saveSessionValue } from "./storage";
 
 export interface AuthToken {

@@ -10,7 +10,6 @@ import {
   Checkbox,
   Chip,
   CssBaseline,
-  Divider,
   FormControl,
   FormControlLabel,
   FormGroup,
@@ -89,22 +88,22 @@ function OptionsApp() {
       const savedSeverityDisplay = await loadPreference<"icons" | "text" | "both">("severityDisplay");
       const savedRetentionDays = await loadPreference<number>("jobRetentionDays");
 
-      if (savedAuth !== undefined) setIsAuthenticated(savedAuth);
+      if (savedAuth !== null) setIsAuthenticated(savedAuth);
       if (savedEmail) setUserEmail(savedEmail);
 
       if (savedProvider) setLlmProvider(savedProvider);
       if (savedLocalUrl) setLocalLlmUrl(savedLocalUrl);
       if (savedApiKey) setApiKey(savedApiKey);
       if (savedModel) setApiModel(savedModel);
-      if (savedPersist !== undefined) setPersistApiKey(savedPersist);
+      if (savedPersist !== null) setPersistApiKey(savedPersist);
 
       if (savedAgents) setEnabledAgents(savedAgents);
 
       if (savedTheme) setMode(savedTheme);
       if (savedSeverityDisplay) setSeverityDisplay(savedSeverityDisplay);
       if (savedRetentionDays) setJobRetentionDays(savedRetentionDays);
-      if (savedAutoAnalyze !== undefined) setAutoAnalyze(savedAutoAnalyze);
-      if (savedSuggestions !== undefined) setShowSuggestions(savedSuggestions);
+      if (savedAutoAnalyze !== null) setAutoAnalyze(savedAutoAnalyze);
+      if (savedSuggestions !== null) setShowSuggestions(savedSuggestions);
     }
     load();
   }, []);

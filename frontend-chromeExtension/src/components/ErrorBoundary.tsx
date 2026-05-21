@@ -13,7 +13,7 @@ import { ErrorOutline, Refresh } from "@mui/icons-material";
 interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode;
-  onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  onError?: (_error: Error, _errorInfo: ErrorInfo) => void;
 }
 
 interface ErrorBoundaryState {
@@ -54,19 +54,19 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+  componentDidCatch(_error: Error, _errorInfo: ErrorInfo): void {
     // Log error to console (could also send to error tracking service like Sentry)
-    console.error("ErrorBoundary caught error:", error, errorInfo);
+    console.error("ErrorBoundary caught error:", _error, _errorInfo);
 
     // Update state with error details
     this.setState({
-      error,
-      errorInfo,
+      error: _error,
+      errorInfo: _errorInfo,
     });
 
     // Call optional error callback
     if (this.props.onError) {
-      this.props.onError(error, errorInfo);
+      this.props.onError(_error, _errorInfo);
     }
   }
 
@@ -199,3 +199,4 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return children;
   }
 }
+

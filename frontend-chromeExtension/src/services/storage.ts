@@ -1,4 +1,4 @@
-type StorageValue = string | number | boolean | Record<string, unknown> | null;
+type StorageValue = string | number | boolean | Record<string, unknown> | Array<unknown> | null;
 
 const memoryStore = new Map<string, StorageValue>();
 const sessionMemoryStore = new Map<string, StorageValue>();

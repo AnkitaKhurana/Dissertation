@@ -1,10 +1,24 @@
+import type { ExtensionMessage } from "./types";
 // Inline constants to avoid module imports
 const ANALYZE_BUTTON_ID = "pr-sentinel-analyze-button";
-const PANEL_ID = "pr-sentinel-panel";
 
 const INLINE_STYLE_ID = "pr-sentinel-inline-style";
 const INLINE_FINDING_CLASS = "pr-sentinel-inline-finding";
 const INLINE_BADGE_CLASS = "pr-sentinel-inline-badge";
+const STATUS_POLL_INTERVAL_MS = 12000; // 12 seconds to reduce server load
+const PROGRESS_TICK_MS = 1000;
+
+let activeJobId: string | null = null;
+let statusPollTimer: number | null = null;
+let progressTicker: number | null = null;
+let displayedProgress = 0;
+
+interface JobStatusUpdateMessage {
+  status: string;
+  progress?: number;
+  results_so_far?: unknown[];
+  error?: string;
+}
 
 // Add console logging for debugging
 console.log("[Content] Script loaded and running on:", window.location.href);
@@ -28,6 +42,119 @@ function sendMessage<T = unknown>(message: any): Promise<T> {
   });
 }
 
+function stopStatusPolling() {
+  if (statusPollTimer !== null) {
+    window.clearTimeout(statusPollTimer);
+    statusPollTimer = null;
+  }
+}
+
+function stopProgressTicker() {
+  if (progressTicker !== null) {
+    window.clearInterval(progressTicker);
+    progressTicker = null;
+  }
+}
+
+function startProgressTicker() {
+  stopProgressTicker();
+  progressTicker = window.setInterval(() => {
+    if (!activeJobId) {
+      stopProgressTicker();
+      return;
+    }
+
+    if (displayedProgress < 95) {
+      displayedProgress = displayedProgress > 0 ? Math.min(displayedProgress + 3, 95) : 5;
+      applyJobStatus({ status: "running", progress: displayedProgress / 100 });
+    }
+  }, PROGRESS_TICK_MS);
+}
+
+async function startStatusPolling(jobId: string) {
+  activeJobId = jobId;
+  await savePreference("activeJobId", jobId);
+  displayedProgress = 0;
+  stopStatusPolling();
+  startProgressTicker();
+
+  const pollOnce = async () => {
+    if (!activeJobId) {
+      return;
+    }
+
+    try {
+      const response = await sendMessage<any>({ type: "GET_STATUS", jobId: activeJobId });
+      if (response?.error) {
+        console.warn("[Content] Status poll error:", response.error);
+      } else if (response?.status) {
+        applyJobStatus(response);
+      }
+
+      if (response?.status && ["completed", "failed", "cancelled"].includes(response.status)) {
+        stopStatusPolling();
+        return;
+      }
+    } catch (error) {
+      console.warn("[Content] Status polling request failed:", error);
+    }
+
+    statusPollTimer = window.setTimeout(pollOnce, STATUS_POLL_INTERVAL_MS);
+  };
+
+  statusPollTimer = window.setTimeout(pollOnce, STATUS_POLL_INTERVAL_MS);
+}
+
+async function resumeStatusPollingFromStorage() {
+  const storedJobId = await loadPreference<string>("activeJobId");
+  if (storedJobId) {
+    console.log("[Content] Resuming status polling for job:", storedJobId);
+    activeJobId = storedJobId;
+    void startStatusPolling(storedJobId);
+  }
+}
+
+function applyJobStatus(message: JobStatusUpdateMessage) {
+  const shadowHost = document.getElementById(ANALYZE_BUTTON_ID);
+  const statusNode = shadowHost?.shadowRoot?.querySelector(".status");
+  const buttonNode = shadowHost?.shadowRoot?.querySelector("button");
+
+  const terminal = ["completed", "failed", "cancelled"].includes(message.status);
+  const backendProgress = typeof message.progress === "number" ? message.progress : null;
+
+  if (backendProgress !== null && backendProgress > 0) {
+    displayedProgress = Math.round(Math.max(0, Math.min(backendProgress, 1)) * 100);
+  } else if (message.status === "completed") {
+    displayedProgress = 100;
+  } else if (displayedProgress === 0 && (message.status === "running" || message.status === "pending")) {
+    displayedProgress = 5;
+  }
+
+  if (statusNode && message.status) {
+    statusNode.textContent = `${message.status} (${displayedProgress.toFixed(0)}%)`;
+    statusNode.className =
+      message.status === "completed" ? "status success" :
+      message.status === "failed" ? "status error" :
+      "status";
+  }
+
+  if (buttonNode && terminal) {
+    buttonNode.textContent = "Analyze PR";
+    buttonNode.disabled = false;
+  }
+
+  if (message.status === "completed" && message.results_so_far) {
+    renderInlineFindings(message.results_so_far as any[]);
+  }
+
+  if (terminal) {
+    stopStatusPolling();
+    stopProgressTicker();
+    activeJobId = null;
+    void savePreference("activeJobId", null);
+  }
+}
+
 // Inline loadPreference helper
 async function loadPreference<T>(key: string): Promise<T | null> {
   if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
@@ -35,6 +162,12 @@ async function loadPreference<T>(key: string): Promise<T | null> {
     return (result[key] as T) ?? null;
   }
   return null;
+}
+
+async function savePreference<T>(key: string, value: T): Promise<void> {
+  if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+    await chrome.storage.local.set({ [key]: value });
+  }
 }
 
 /**
@@ -185,6 +318,10 @@ export function attachShadowUi(): void {
       status.textContent = `Job: ${(response as any)?.jobId || "started"}`;
       status.className = "status success";
       btn.textContent = "Analyzing...";
+
+      if ((response as any)?.jobId) {
+        void startStatusPolling((response as any).jobId);
+      }
     } catch (error) {
       console.error("[Content] Analysis error:", error);
       status.textContent = "Error";
@@ -212,47 +349,33 @@ export function attachShadowUi(): void {
 
 chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
   if (message.type === "JOB_STATUS_UPDATE") {
-    const shadowHost = document.getElementById(ANALYZE_BUTTON_ID);
-    const statusNode = shadowHost?.shadowRoot?.querySelector(".status");
-    const buttonNode = shadowHost?.shadowRoot?.querySelector("button");
-    
-    if (statusNode) {
-      const progress = (message.progress || 0) * 100;
-      statusNode.textContent = `${message.status} (${progress.toFixed(0)}%)`;
-      statusNode.className =
-        message.status === "completed" ? "status success" :
-        message.status === "failed" ? "status error" :
-        "status";
-    }
-
-    // Reset button when job completes or fails
-    if (buttonNode && ["completed", "failed", "cancelled"].includes(message.status)) {
-      buttonNode.textContent = "Analyze PR";
-      buttonNode.disabled = false;
-    }
-
-    if (message.status === "completed" && message.results_so_far) {
-      renderInlineFindings(message.results_so_far as any[]);
-    }
+    applyJobStatus(message as JobStatusUpdateMessage);
     return false; // Don't keep channel open
   }
   return false; // Always return false for unhandled messages
 });
 
 // Watch for page changes
-const observer = new MutationObserver((mutations) => {
+const observer = new MutationObserver((_mutations) => {
+  if (typeof document === "undefined") {
+    return;
+  }
+
   if (!document.getElementById(ANALYZE_BUTTON_ID)) {
     attachShadowUi();
   }
 });
 
-observer.observe(document.documentElement, { 
-  childList: true, 
-  subtree: true 
-});
+if (typeof document !== "undefined" && document.documentElement) {
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
+}
 
 // Initial attempt
 attachShadowUi();
+resumeStatusPollingFromStorage();
 
 // Retry after delay
 setTimeout(() => {
@@ -337,10 +460,20 @@ async function renderInlineFindings(findings: any[]) {
   ensureInlineStyles();
   clearInlineFindings();
 
-  // Find file headers first (these contain the file path)
+  const normalizePath = (value: string) =>
+    String(value || "")
+      .trim()
+      .replace(/^\//, "")
+      .replace(/^\.\//, "")
+      .replace(/\\/g, "/")
+      .replace(/\/+/g, "/")
+      .toLowerCase();
+
+  // Find file headers first (these contain the file path).
+  // Prefer stable GitHub attributes used on Files tab containers/anchors.
   const fileHeaders = Array.from(
     document.querySelectorAll(
-      "button[aria-label*='Show'], div[class*='Header'], [class*='file-header'], button[title*='.']"
+      "[data-path], [data-tagsearch-path], [data-file-path], a[title][href*='#diff-'], div.file-header, [class*='file-header']"
     )
   ) as HTMLElement[];
   
@@ -354,6 +487,11 @@ async function renderInlineFindings(findings: any[]) {
   for (const header of fileHeaders) {
     const ariaLabel = header.getAttribute("aria-label") || "";
     const title = header.getAttribute("title") || "";
+    const dataPath =
+      header.getAttribute("data-path") ||
+      header.getAttribute("data-tagsearch-path") ||
+      header.getAttribute("data-file-path") ||
+      "";
     let text = header.textContent || "";
     
     // Clean up text - remove all the menu options and extra whitespace
@@ -374,7 +512,9 @@ async function renderInlineFindings(findings: any[]) {
     
     // Try to extract file path from various sources
     let filePath = "";
-    if (ariaLabel.includes("Show")) {
+    if (dataPath) {
+      filePath = dataPath.trim();
+    } else if (ariaLabel.includes("Show")) {
       // aria-label format: "Show 1 hidden line in file filename.ext"
       const match = ariaLabel.match(/in file (.+)/);
       if (match) filePath = match[1];
@@ -385,8 +525,9 @@ async function renderInlineFindings(findings: any[]) {
     }
     
     if (filePath && filePath.length < 300) { // Sanity check - filenames shouldn't be huge
-      console.log("[Content] Extracted file path:", filePath);
-      filePathsFromDOM.set(filePath, header);
+      const normalized = normalizePath(filePath);
+      console.log("[Content] Extracted file path:", filePath, "normalized:", normalized);
+      filePathsFromDOM.set(normalized, header);
     }
   }
   
@@ -395,25 +536,52 @@ async function renderInlineFindings(findings: any[]) {
   const byFile = new Map<string, any[]>();
 
   for (const finding of findings) {
-    const filePath = String(finding.file_path || finding.filePath || "").replace(/^\//, "");
-    if (!filePath || filePath === "PR_SUMMARY.txt") continue; // Skip summary entries
+    const filePath = normalizePath(String(finding.file_path || finding.filePath || "").replace(/^\//, ""));
+    if (!filePath || filePath === "pr_summary.txt") continue; // Skip summary entries
     const list = byFile.get(filePath) || [];
     list.push(finding);
     byFile.set(filePath, list);
   }
   console.log("[Content] Findings grouped by file:", byFile.size, Array.from(byFile.keys()).slice(0, 5));
 
+  // Add a small badge next to file headers indicating number of findings
+  for (const [filePath, findingsList] of byFile.entries()) {
+    let header = filePathsFromDOM.get(filePath) as HTMLElement | undefined;
+    if (!header) {
+      for (const [domPath, h] of filePathsFromDOM.entries()) {
+        if (domPath.includes(filePath) || filePath.includes(domPath) || domPath.endsWith('/' + filePath) || filePath.endsWith('/' + domPath)) {
+          header = h as HTMLElement;
+          break;
+        }
+      }
+    }
+
+    if (!header) continue;
+
+    // Avoid duplicate badge
+    if (header.querySelector && header.querySelector(`.${INLINE_BADGE_CLASS}`)) continue;
+
+    const badge = document.createElement('span');
+    badge.className = INLINE_BADGE_CLASS;
+    badge.textContent = `${findingsList.length} findings`;
+    try {
+      header.appendChild(badge);
+    } catch (e) {
+      header.parentElement?.appendChild(badge);
+    }
+  }
+
   // Try to render findings
   let renderedCount = 0;
   for (const [filePath, findingsList] of byFile.entries()) {
     console.log(`[Content] Looking for DOM match for file: "${filePath}"`);
-    let fileHeader = filePathsFromDOM.get(filePath);
+    let fileHeader: HTMLElement | null = (filePathsFromDOM.get(filePath) as HTMLElement) ?? null;
     
     if (!fileHeader) {
       console.log("[Content] No exact match, trying fuzzy match...");
       // Try fuzzy matching - file might be at different path
       for (const [domPath, header] of filePathsFromDOM.entries()) {
-        if (domPath.includes(filePath) || filePath.includes(domPath)) {
+        if (domPath.includes(filePath) || filePath.includes(domPath) || domPath.endsWith('/' + filePath) || filePath.endsWith('/' + domPath)) {
           console.log("[Content] Fuzzy matched:", filePath, "←→", domPath);
           fileHeader = header;
           break;
@@ -427,7 +595,7 @@ async function renderInlineFindings(findings: any[]) {
     }
 
     // Find the file container (parent div) that contains this header
-    let fileContainer = fileHeader;
+    let fileContainer: HTMLElement | null = fileHeader;
     while (fileContainer && !fileContainer.querySelector("table")) {
       fileContainer = fileContainer.parentElement;
       if (!fileContainer || fileContainer === document.body) {
@@ -441,13 +609,17 @@ async function renderInlineFindings(findings: any[]) {
       continue;
     }
 
-    const table = fileContainer.querySelector("table");
-    if (!table) {
-      console.log("[Content] Still no table in container for:", filePath);
+    const diffRoot =
+      (fileContainer.querySelector("table") as HTMLElement | null) ||
+      (fileContainer.querySelector("[data-path], [data-tagsearch-path], .js-file-content") as HTMLElement | null) ||
+      fileContainer;
+
+    if (!diffRoot) {
+      console.log("[Content] Still no diff root in container for:", filePath);
       continue;
     }
 
-    console.log(`[Content] Found table for ${filePath}, rendering ${findingsList.length} findings`);
+    console.log(`[Content] Found diff root for ${filePath}, rendering ${findingsList.length} findings`);
 
     for (const finding of findingsList) {
       const lineNumber = Number(finding.line_number || finding.line || 0);
@@ -456,20 +628,28 @@ async function renderInlineFindings(findings: any[]) {
         continue;
       }
 
-      // Find line in table
-      const lineCell = table.querySelector(`td[data-line-number='${lineNumber}']`) as HTMLElement | null;
-      const lineRow = lineCell?.closest("tr");
-      if (!lineRow) {
-        console.log(`[Content] No row found for line ${lineNumber} in ${filePath}`);
+      // Find line in table / diff container
+      const lineCell =
+        (diffRoot.querySelector(`td[data-line-number='${lineNumber}']`) as HTMLElement | null) ||
+        (diffRoot.querySelector(`[data-line-number='${lineNumber}']`) as HTMLElement | null) ||
+        (diffRoot.querySelector(`#L${lineNumber}`) as HTMLElement | null) ||
+        (diffRoot.querySelector(`#LC${lineNumber}`) as HTMLElement | null) ||
+        (diffRoot.querySelector(`#R${lineNumber}`) as HTMLElement | null);
+      const lineRow = lineCell?.closest("tr") as HTMLElement | null;
+      if (!lineCell) {
+        console.log(`[Content] No line node found for line ${lineNumber} in ${filePath}`);
         continue;
       }
 
-      const colspan = lineRow.querySelectorAll("td").length || 4;
-      const row = document.createElement("tr");
+      const isTableLayout = !!lineRow;
+      const row = document.createElement(isTableLayout ? "tr" : "div");
       row.className = INLINE_FINDING_CLASS;
 
-      const td = document.createElement("td");
-      td.colSpan = colspan;
+      const td = document.createElement(isTableLayout ? "td" : "div");
+      if (isTableLayout) {
+        const colspan = lineRow?.querySelectorAll("td").length || 4;
+        (td as HTMLTableCellElement).colSpan = colspan;
+      }
 
       const meta = document.createElement("div");
       meta.className = "meta";
@@ -504,11 +684,16 @@ async function renderInlineFindings(findings: any[]) {
       }
 
       row.appendChild(td);
-      lineRow.after(row);
+      if (isTableLayout && lineRow) {
+        lineRow.after(row);
+      } else {
+        const anchor = lineCell.closest(".js-file-line, .blob-code-inner, .blob-code, div") as HTMLElement | null;
+        (anchor || lineCell).after(row);
+      }
       renderedCount++;
       
       // Verify the row was actually inserted
-      const verifyRow = lineRow.nextElementSibling;
+      const verifyRow = isTableLayout ? lineRow?.nextElementSibling : row;
       console.log(`[Content] ✓ Rendered finding at line ${lineNumber}, row visible: ${!!verifyRow && verifyRow.className.includes(INLINE_FINDING_CLASS)}`);
     }
   }

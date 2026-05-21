@@ -3,60 +3,35 @@ import { setupServer } from "msw/node";
 
 import { handlers } from "./msw/handlers";
 
-declare global {
-  // eslint-disable-next-line no-var
-  var chrome: any;
-}
-
 const server = setupServer(...handlers);
 
 beforeAll(() => server.listen());
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-if (!global.chrome) {
-  global.chrome = {
-    storage: {
-      local: {
-        store: {} as Record<string, unknown>,
-        async set(items: Record<string, unknown>) {
-          Object.assign(this.store, items);
-        },
-        async get(keys: string[]) {
-          const result: Record<string, unknown> = {};
-          keys.forEach((key) => {
-            result[key] = this.store[key];
-          });
-          return result;
-        },
-        async clear() {
-          this.store = {};
-        },
-      },
-      session: {
-        store: {} as Record<string, unknown>,
-        async set(items: Record<string, unknown>) {
-          Object.assign(this.store, items);
-        },
-        async get(keys: string[]) {
-          const result: Record<string, unknown> = {};
-          keys.forEach((key) => {
-            result[key] = this.store[key];
-          });
-          return result;
-        },
-        async clear() {
-          this.store = {};
-        },
-      },
-    },
-    runtime: {
-      sendMessage: jest.fn(),
-      lastError: null,
-    },
-  };
+// Force fetch to be a real Jest mock after the environment is ready.
+Object.defineProperty(globalThis, "fetch", {
+  configurable: true,
+  writable: true,
+  value: jest.fn(),
+});
+
+// Provide a clipboard mock for tests that interact with navigator.clipboard.
+if (!(globalThis as any).navigator) (globalThis as any).navigator = {};
+Object.defineProperty((globalThis as any).navigator, "clipboard", {
+  configurable: true,
+  writable: true,
+  value: {
+    writeText: jest.fn().mockResolvedValue(undefined),
+  },
+});
+
+// Strengthen the chrome mock with Jest spies now that they are available.
+const chromeMock = (globalThis as any).chrome;
+if (chromeMock) {
+  chromeMock.runtime.sendMessage = jest.fn();
+  chromeMock.runtime.onMessage.addListener = jest.fn();
+  chromeMock.runtime.onMessage.removeListener = jest.fn();
 }
 
-if (!global.fetch) {
-  global.fetch = jest.fn();
-}
+

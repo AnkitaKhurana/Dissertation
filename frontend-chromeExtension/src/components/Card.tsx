@@ -1,6 +1,8 @@
 import { ReactNode } from "react";
-
-import { theme } from "../theme";
+import CardMUI from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import CardActions from "@mui/material/CardActions";
+import Typography from "@mui/material/Typography";
 
 interface CardProps {
   title: string;
@@ -10,18 +12,16 @@ interface CardProps {
 
 export function Card({ title, children, footer }: CardProps) {
   return (
-    <div
-      style={{
-        background: theme.colors.panel,
-        border: `1px solid ${theme.colors.border}`,
-        borderRadius: theme.radii.md,
-        padding: "14px",
-        boxShadow: theme.shadow,
-      }}
-    >
-      <div style={{ color: theme.colors.text, fontWeight: 700, marginBottom: 8 }}>{title}</div>
-      <div style={{ color: theme.colors.subtext, fontSize: 14 }}>{children}</div>
-      {footer ? <div style={{ marginTop: 10 }}>{footer}</div> : null}
-    </div>
+    <CardMUI variant="outlined" sx={{ borderRadius: 2 }}>
+      <CardContent>
+        <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+          {title}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {children}
+        </Typography>
+      </CardContent>
+      {footer ? <CardActions>{footer}</CardActions> : null}
+    </CardMUI>
   );
 }

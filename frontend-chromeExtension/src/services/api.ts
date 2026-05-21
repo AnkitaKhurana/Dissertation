@@ -1,24 +1,11 @@
 const DEFAULT_API_BASE = "https://api.example.com";
 
 import { authService } from "./auth";
-
-interface CreateJobResponse {
-  job_id: string;
-  status: string;
-  status_url: string;
-  created_at?: string;
-  results_so_far?: unknown[];
-  progress?: number;
-}
-
-interface JobStatusResponse {
-  job_id: string;
-  status: string;
-  results_so_far?: unknown[];
-  progress?: number;
-  last_updated?: string;
-  error?: string | null;
-}
+import {
+  JobResponse,
+  JobDetailResponse,
+  JobListResponse,
+} from "../types/backend";
 
 /**
  * Helper to get headers with JWT token
@@ -51,7 +38,7 @@ async function parseErrorResponse(res: Response): Promise<string> {
 }
 
 export const apiClient = {
-  async createJob(prUrl: string, apiHost?: string, agents?: string[]): Promise<CreateJobResponse> {
+  async createJob(prUrl: string, apiHost?: string, agents?: string[]): Promise<JobResponse> {
     const base = apiHost || DEFAULT_API_BASE;
     const headers = await getAuthHeaders();
     const url = `${base}/analyze-pr`;
@@ -80,7 +67,7 @@ export const apiClient = {
     return res.json();
   },
 
-  async getJobStatus(jobId: string, apiHost?: string): Promise<JobStatusResponse> {
+  async getJobStatus(jobId: string, apiHost?: string): Promise<JobDetailResponse> {
     const base = apiHost || DEFAULT_API_BASE;
     const headers = await getAuthHeaders();
 
@@ -97,11 +84,11 @@ export const apiClient = {
     return res.json();
   },
 
-  async listJobs(apiHost?: string, limit = 10, skip = 0): Promise<{ jobs: JobStatusResponse[]; total: number }> {
+  async listJobs(apiHost?: string, page = 1, limit = 10): Promise<JobListResponse> {
     const base = apiHost || DEFAULT_API_BASE;
     const headers = await getAuthHeaders();
 
-    const res = await fetch(`${base}/jobs?limit=${limit}&skip=${skip}`, {
+    const res = await fetch(`${base}/jobs?page=${page}&limit=${limit}`, {
       headers,
       credentials: "include",
     });
@@ -114,12 +101,12 @@ export const apiClient = {
     return res.json();
   },
 
-  async cancelJob(jobId: string, apiHost?: string): Promise<{ success: boolean }> {
+  async cancelJob(jobId: string, apiHost?: string): Promise<JobDetailResponse> {
     const base = apiHost || DEFAULT_API_BASE;
     const headers = await getAuthHeaders();
 
     const res = await fetch(`${base}/jobs/${jobId}/cancel`, {
-      method: "POST",
+      method: "PATCH",
       headers,
       credentials: "include",
     });

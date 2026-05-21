@@ -1,6 +1,20 @@
 import { apiClient } from "../services/api";
 
+const installFetchMock = () => {
+  const fetchMock = jest.fn();
+  Object.defineProperty(globalThis, "fetch", {
+    configurable: true,
+    writable: true,
+    value: fetchMock,
+  });
+  return fetchMock as jest.Mock;
+};
+
 describe("apiClient", () => {
+  beforeEach(() => {
+    installFetchMock();
+  });
+
   it("calls analyze endpoint", async () => {
     const mockResponse = {
       job_id: "123",
@@ -9,15 +23,15 @@ describe("apiClient", () => {
       results_so_far: [],
     };
 
-    (global.fetch as jest.Mock).mockResolvedValue({
+    (globalThis.fetch as jest.Mock).mockResolvedValue({
       ok: true,
       json: async () => mockResponse,
     });
 
     const res = await apiClient.createJob("https://github.com/org/repo/pull/1", "https://api.test");
     expect(res.job_id).toBe("123");
-    expect(global.fetch).toHaveBeenCalledWith(
-      "https://api.test/api/v1/analyze-pr",
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "https://api.test/analyze-pr",
       expect.objectContaining({ method: "POST" })
     );
   });
