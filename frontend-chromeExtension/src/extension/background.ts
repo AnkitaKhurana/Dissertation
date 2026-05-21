@@ -70,7 +70,7 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendRes
 async function handleAnalyze(prUrl: string, agents?: string[]): Promise<AnalyzeResponse> {
   try {
     const apiHost = await loadPreference<string>("backendUrl");
-    console.log("[Background] Creating job with apiHost:", apiHost);
+    console.log("[Background] handleAnalyze start:", { prUrl, agents, apiHost });
     const response = await apiClient.createJob(prUrl, apiHost || undefined, agents);
     console.log("[Background] API Response:", JSON.stringify(response, null, 2));
     
@@ -78,7 +78,11 @@ async function handleAnalyze(prUrl: string, agents?: string[]): Promise<AnalyzeR
       throw new Error("No job_id in response");
     }
     
-    console.log("[Background] Job created:", response.job_id);
+    console.log("[Background] Job created:", response.job_id, {
+      status: response.status,
+      progress: response.progress,
+      hasResults: Array.isArray(response.results_so_far) ? response.results_so_far.length : 0,
+    });
     await persistRecentJob({
       jobId: response.job_id,
       status: response.status,
@@ -87,6 +91,7 @@ async function handleAnalyze(prUrl: string, agents?: string[]): Promise<AnalyzeR
       last_updated: response.created_at,
     });
     // Start polling in background (don't await, let it run async)
+    console.log("[Background] Starting async poll loop for:", response.job_id);
     void pollJob(response.job_id, apiHost || undefined);
     return {
       jobId: response.job_id,
@@ -110,7 +115,15 @@ async function handleAnalyze(prUrl: string, agents?: string[]): Promise<AnalyzeR
 async function handleStatusPoll(jobId: string): Promise<JobStatusPayload> {
   try {
     const apiHost = await loadPreference<string>("backendUrl");
+    console.log("[Background] handleStatusPoll start:", { jobId, apiHost });
     const status = await apiClient.getJobStatus(jobId, apiHost || undefined);
+    console.log("[Background] handleStatusPoll response:", {
+      jobId: status.job_id,
+      status: status.status,
+      progress: status.progress,
+      results: Array.isArray(status.results_so_far) ? status.results_so_far.length : 0,
+      error: status.error,
+    });
     return {
       jobId: status.job_id,
       status: status.status,
@@ -132,10 +145,11 @@ async function handleStatusPoll(jobId: string): Promise<JobStatusPayload> {
 }
 
 async function pollJob(jobId: string, apiHost?: string) {
-  console.log("[Background] Starting job poll for:", jobId);
+  console.log("[Background] Starting job poll for:", { jobId, apiHost });
   for (const delay of BACKOFF_MS) {
     await wait(delay);
     try {
+      console.log("[Background] Polling job status after delay:", { jobId, delay });
       const status = await apiClient.getJobStatus(jobId, apiHost || undefined);
       const payload: JobStatusPayload = {
         jobId: status.job_id,
@@ -145,6 +159,12 @@ async function pollJob(jobId: string, apiHost?: string) {
         last_updated: status.last_updated,
         error: status.error,
       };
+      console.log("[Background] Broadcasting job update:", {
+        jobId: payload.jobId,
+        status: payload.status,
+        progress: payload.progress,
+        results: Array.isArray(payload.results_so_far) ? payload.results_so_far.length : 0,
+      });
       broadcastJobUpdate(payload);
       // Persist intermediate progress too, so popup fallback data stays fresh.
       await persistRecentJob(payload);
@@ -161,6 +181,12 @@ async function pollJob(jobId: string, apiHost?: string) {
   // Final status fetch in case completion happened right after last interval.
   try {
     const finalStatus = await apiClient.getJobStatus(jobId, apiHost || undefined);
+    console.log("[Background] Final poll status:", {
+      jobId: finalStatus.job_id,
+      status: finalStatus.status,
+      progress: finalStatus.progress,
+      results: Array.isArray(finalStatus.results_so_far) ? finalStatus.results_so_far.length : 0,
+    });
     const payload: JobStatusPayload = {
       jobId: finalStatus.job_id,
       status: finalStatus.status,
@@ -186,6 +212,7 @@ async function persistRecentJob(job: JobStatusPayload) {
 function broadcastJobUpdate(payload: JobStatusPayload) {
   // Try to send update to all tabs (in case content script is on a different tab)
   chrome.tabs.query({}, (tabs) => {
+    console.log("[Background] broadcastJobUpdate tabs:", tabs.length);
     tabs.forEach((tab) => {
       if (tab.id) {
         try {
@@ -193,6 +220,9 @@ function broadcastJobUpdate(payload: JobStatusPayload) {
             const lastErr = chrome.runtime && (chrome.runtime as any).lastError;
             if (lastErr) {
               // Ignore errors when content script isn't present for a tab.
+              console.debug("[Background] sendMessage ignored for tab", tab.id, lastErr.message);
+            } else {
+              console.log("[Background] sendMessage delivered to tab", tab.id, payload.status);
             }
           });
         } catch (sendErr) {

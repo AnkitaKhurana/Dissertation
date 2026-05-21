@@ -74,6 +74,7 @@ function startProgressTicker() {
 
 async function startStatusPolling(jobId: string) {
   activeJobId = jobId;
+  console.log("[Content] startStatusPolling:", { jobId });
   await savePreference("activeJobId", jobId);
   displayedProgress = 0;
   stopStatusPolling();
@@ -87,6 +88,7 @@ async function startStatusPolling(jobId: string) {
     try {
       console.log("[Content] Polling job status:", activeJobId);
       const response = await sendMessage<any>({ type: "GET_STATUS", jobId: activeJobId });
+      console.log("[Content] Poll response raw:", response);
       if (response?.error) {
         console.warn("[Content] Status poll error:", response.error);
       } else if (response?.status) {
@@ -118,6 +120,12 @@ async function resumeStatusPollingFromStorage() {
 }
 
 function applyJobStatus(message: JobStatusUpdateMessage) {
+  console.log("[Content] applyJobStatus:", {
+    status: message.status,
+    progress: message.progress,
+    hasResults: Array.isArray(message.results_so_far) ? message.results_so_far.length : 0,
+    activeJobId,
+  });
   const shadowHost = document.getElementById(ANALYZE_BUTTON_ID);
   const statusNode = shadowHost?.shadowRoot?.querySelector(".status");
   const buttonNode = shadowHost?.shadowRoot?.querySelector("button");
@@ -151,6 +159,7 @@ function applyJobStatus(message: JobStatusUpdateMessage) {
   }
 
   if (terminal) {
+    console.log("[Content] Terminal status reached:", message.status, "clearing active job state");
     stopStatusPolling();
     stopProgressTicker();
     activeJobId = null;
@@ -282,6 +291,8 @@ export function attachShadowUi(): void {
       status.textContent = "Analyzing...";
       status.className = "status";
 
+      console.log("[Content] Analyze button clicked:", { prUrl });
+
       clearInlineFindings();
 
       // Get enabled agents from settings
@@ -298,6 +309,8 @@ export function attachShadowUi(): void {
         prUrl,
         agents,
       } as ExtensionMessage);
+
+      console.log("[Content] ANALYZE_PR response:", response);
 
       if ((response as any)?.type === "OFFLINE") {
         status.textContent = "Offline";
@@ -318,6 +331,7 @@ export function attachShadowUi(): void {
       btn.textContent = "Analyzing...";
 
       if ((response as any)?.jobId) {
+        console.log("[Content] Starting status polling for job:", (response as any).jobId);
         void startStatusPolling((response as any).jobId);
       }
     } catch (error) {
@@ -346,6 +360,7 @@ export function attachShadowUi(): void {
 }
 
 chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
+  console.log("[Content] chrome.runtime.onMessage:", message);
   if (message.type === "JOB_STATUS_UPDATE") {
     applyJobStatus(message as JobStatusUpdateMessage);
     return false; // Don't keep channel open
@@ -446,6 +461,11 @@ function clearInlineFindings() {
 
 async function renderInlineFindings(findings: any[]) {
   const showSuggestions = (await loadPreference("showSuggestions")) ?? true; // Default to true
+  console.log("[Content] renderInlineFindings start:", {
+    findings: Array.isArray(findings) ? findings.length : 0,
+    showSuggestions,
+    activeJobId,
+  });
   if (!showSuggestions) return;
 
   if (!Array.isArray(findings) || findings.length === 0) {
