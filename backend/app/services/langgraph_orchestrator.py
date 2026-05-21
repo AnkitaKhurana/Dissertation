@@ -74,7 +74,19 @@ class LangGraphOrchestrator:
             await self._persist_agent_state(job_id, pr_url, agent, status="running")
             
             try:
+                logger.info("LLM call starting", extra={"job_id": job_id, "agent": agent, "prompt_len": len(prompt)})
                 findings = await self.llm.analyze(prompt)
+                # Log result counts for diagnostics
+                if not findings:
+                    logger.warning(
+                        "LLM returned no findings",
+                        extra={"job_id": job_id, "agent": agent, "prompt_preview": prompt[:1000]},
+                    )
+                else:
+                    logger.info(
+                        "LLM returned findings",
+                        extra={"job_id": job_id, "agent": agent, "count": len(findings)},
+                    )
                 
                 # Deduplicate findings before appending
                 unique_findings = []

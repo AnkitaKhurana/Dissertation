@@ -179,7 +179,7 @@ class GroqAdapter(LLMAdapter):
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": prompt}
             ],
-            "max_tokens": max_tokens,
+            "max_tokens": self.max_tokens,
             "temperature": self.temperature,
             "top_p": self.top_p,
         }
