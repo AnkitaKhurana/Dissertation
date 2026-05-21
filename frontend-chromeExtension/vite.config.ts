@@ -19,7 +19,9 @@ export default defineConfig({
         offscreen: resolve(__dirname, "src/extension/offscreen.ts"),
       },
       output: {
-        format: "es",
+        // Use IIFE so content script bundles run as classic scripts in pages
+        // (some Chromium environments don't treat content scripts as modules).
+        format: "iife",
         entryFileNames: (chunkInfo) => {
           if (chunkInfo.name === "background") return "background.js";
           if (chunkInfo.name === "content") return "content.js";
