@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "PR Sentinel",
+  "version": "0.1.0",
+  "description": "Automated pull request reviewer using multi-agent LLMs.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyu+AbxvmrwVa9RpJ1tnineiOyn5coxr0Ug1RuRRTieTowzWDXL7VtSh1gqY6yJZgknWaBpQ45oSLaad//kB2f7P4TshXRraeTPCs7XThjs/uOwkwbzIgrIxcQZ5rdFE96WgQMvMb0/y/irJuA0iP13QpbFOSVF8IFIcJiG9Ym3uJJg7tvRmkBiq0tB+S633hFPBUuYkkvepeks8r5McaCcqShyrd9LgnlEClhlCwIqUSfD34/EQrwkDEd0dXQFdSsG9mO9Ee0j4WJ6hHyXQL0oLMkXcnWAKhNhyxsGAOXYxYQqczAcxA1hZJnp0sV0ilwwPFGHrA8GhYm/+5/mu2LwIDAQAB",
+  "action": {
+    "default_popup": "src/popup.html",
+    "default_title": "PR Sentinel"
+  },
+  "options_page": "src/options.html",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": ["https://github.com/*", "https://llm-f0f3dafnbabua6d6.centralindia-01.azurewebsites.net/*", "https://*.azurewebsites.net/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://github.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "128": "icons/icon.svg"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["src/options.html", "offscreen.js"],
+      "matches": ["https://*/*", "chrome://*/*"]
+    }
+  ]
+}
